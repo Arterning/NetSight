@@ -1,273 +1,322 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { AssetCard, type Asset } from '@/components/asset-card';
-import { scanAndAnalyzeAction } from '@/lib/actions';
-import { Loader2, ScanLine, Telescope, Clock, Calendar } from 'lucide-react';
+import { 
+  Server, 
+  Clock, 
+  Play, 
+  Pause, 
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  BarChart3,
+  Calendar,
+  Activity
+} from 'lucide-react';
 import Link from 'next/link';
 
-const formSchema = z.object({
-  taskName: z.string().min(1, '任务名称是必需的。'),
-  description: z.string().optional(),
-  ipRange: z.string().min(1, 'IP范围是必需的。'),
-  scanRate: z.string(),
-  isScheduled: z.boolean(),
-  scheduleType: z.string().optional(),
-});
+interface AssetStats {
+  total: number;
+  active: number;
+  inactive: number;
+  maintenance: number;
+  byPriority: { [key: string]: number };
+}
 
-type FormValues = z.infer<typeof formSchema>;
+interface ScheduledTask {
+  id: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  nextRunAt?: string;
+  lastRunAt?: string;
+  scheduleType: string;
+  executions: TaskExecution[];
+}
 
-export default function Home() {
-  const [isPending, startTransition] = useTransition();
-  const [results, setResults] = useState<Asset[]>([]);
+interface TaskExecution {
+  id: string;
+  status: string;
+  startTime?: string;
+  endTime?: string;
+  duration?: number;
+  assetsFound: number;
+}
+
+export default function Dashboard() {
+  const [assetStats, setAssetStats] = useState<AssetStats | null>(null);
+  const [activeTasks, setActiveTasks] = useState<ScheduledTask[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      taskName: '',
-      description: '',
-      ipRange: '192.168.1.1-255',
-      scanRate: 'adaptive',
-      isScheduled: false,
-      scheduleType: 'once',
-    },
-  });
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
-  const isScheduled = form.watch('isScheduled');
+  const fetchDashboardData = async () => {
+    try {
+      const [statsResponse, tasksResponse] = await Promise.all([
+        fetch('/api/assets/stats'),
+        fetch('/api/tasks')
+      ]);
 
-  const onSubmit = (values: FormValues) => {
-    setResults([]);
-    startTransition(async () => {
-      const response = await scanAndAnalyzeAction(values);
-      if (response.error) {
-        toast({
-          variant: 'destructive',
-          title: '发生错误',
-          description: response.error,
-        });
-      } else {
-        setResults(response.data || []);
-        if (values.isScheduled) {
-          toast({
-            title: '定时任务已创建',
-            description: '任务已成功创建并安排执行。',
-          });
-        }
+      if (statsResponse.ok) {
+        const stats = await statsResponse.json();
+        setAssetStats(stats);
       }
-    });
+
+      if (tasksResponse.ok) {
+        const tasks = await tasksResponse.json();
+        // 只显示活跃的任务
+        setActiveTasks(tasks.filter((task: ScheduledTask) => task.isActive));
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to fetch dashboard data',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'waiting':
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+      case 'running':
+        return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
+      case 'completed':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'failed':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      default:
+        return <AlertCircle className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const formatScheduleType = (type: string) => {
+    const types: Record<string, string> = {
+      once: '一次性',
+      daily: '每天',
+      weekly: '每周',
+      every3days: '每三天',
+      monthly: '每月',
+    };
+    return types[type] || type;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <>
-      <section className="mb-12">
-        <Card className="max-w-2xl mx-auto">
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle>网络扫描</CardTitle>
-                <CardDescription>
-                  输入IP范围来扫描活跃资产并分析它们。
-                </CardDescription>
-              </div>
-              <Link href="/tasks">
-                <Button variant="outline" size="sm">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  任务管理
-                </Button>
-              </Link>
-            </div>
+    <div className="container mx-auto py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">NetSight Dashboard</h1>
+        <p className="text-muted-foreground mt-2">
+          网络资产管理和监控中心
+        </p>
+      </div>
+
+      {/* 统计卡片 */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">总资产数</CardTitle>
+            <Server className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="taskName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>任务名称</FormLabel>
-                      <FormControl>
-                        <Input placeholder="例如：办公室网络扫描" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>任务描述</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="描述此扫描任务的目的和范围..." 
-                          {...field} 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="ipRange"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>IP范围</FormLabel>
-                      <FormControl>
-                        <Input placeholder="例如：192.168.1.1/24 或 10.0.0.1-50" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="scanRate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>扫描速率</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="选择扫描速率" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="slow">慢速</SelectItem>
-                          <SelectItem value="normal">正常</SelectItem>
-                          <SelectItem value="fast">快速</SelectItem>
-                          <SelectItem value="adaptive">自适应</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="isScheduled"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">定时任务</FormLabel>
-                        <div className="text-sm text-muted-foreground">
-                          将此扫描设置为定时任务
-                        </div>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-
-                {isScheduled && (
-                  <FormField
-                    control={form.control}
-                    name="scheduleType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>执行周期</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="选择执行周期" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="once">一次性任务</SelectItem>
-                            <SelectItem value="daily">每天</SelectItem>
-                            <SelectItem value="weekly">每周</SelectItem>
-                            <SelectItem value="every3days">每三天</SelectItem>
-                            <SelectItem value="monthly">每月</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                <Button type="submit" className="w-full" disabled={isPending}>
-                  {isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <ScanLine className="mr-2 h-4 w-4" />
-                  )}
-                  {isPending ? '扫描中...' : (isScheduled ? '创建定时任务' : '开始扫描')}
-                </Button>
-              </form>
-            </Form>
+            <div className="text-2xl font-bold">{assetStats?.total || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              网络中发现的所有资产
+            </p>
           </CardContent>
         </Card>
-      </section>
 
-      <section>
-        {isPending ? (
-          <div className="flex flex-col items-center justify-center gap-4 text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <h2 className="text-2xl font-semibold">扫描网络中</h2>
-            <p className="text-muted-foreground">
-              正在识别活跃IP并分析资产。这可能需要一些时间...
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">活跃资产</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{assetStats?.active || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              当前在线和可访问的资产
             </p>
-          </div>
-        ) : results.length > 0 ? (
-          <div>
-            <h2 className="text-3xl font-bold mb-6">扫描结果</h2>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {results.map((asset) => (
-                <AssetCard key={asset.ip} asset={asset} />
-              ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">活跃任务</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{activeTasks.length}</div>
+            <p className="text-xs text-muted-foreground">
+              正在运行的定时扫描任务
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">高优先级</CardTitle>
+            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {(assetStats?.byPriority?.High || 0) + (assetStats?.byPriority?.Critical || 0)}
             </div>
-          </div>
-        ) : (
-           <div className="text-center py-16 px-4 border-2 border-dashed rounded-lg">
-              <Telescope className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">准备发现</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                您的扫描结果将在此处显示，一旦您开始扫描。
-              </p>
-          </div>
-        )}
-      </section>
-    </>
+            <p className="text-xs text-muted-foreground">
+              高优先级和关键资产
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 资产状态分布 */}
+      <div className="grid gap-6 md:grid-cols-2 mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              资产状态分布
+            </CardTitle>
+            <CardDescription>
+              按状态分类的资产数量
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-sm">活跃</span>
+                </div>
+                <Badge variant="outline">{assetStats?.active || 0}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                  <span className="text-sm">维护中</span>
+                </div>
+                <Badge variant="outline">{assetStats?.maintenance || 0}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                  <span className="text-sm">离线</span>
+                </div>
+                <Badge variant="outline">{assetStats?.inactive || 0}</Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              活跃任务
+            </CardTitle>
+            <CardDescription>
+              当前正在运行的定时任务
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {activeTasks.length === 0 ? (
+              <div className="text-center py-8">
+                <Clock className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">暂无活跃任务</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activeTasks.slice(0, 3).map((task) => (
+                  <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{task.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatScheduleType(task.scheduleType)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {task.executions.length > 0 && task.executions[0].status === 'running' ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                      ) : (
+                        <Play className="h-4 w-4 text-green-500" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {activeTasks.length > 3 && (
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">
+                      还有 {activeTasks.length - 3} 个任务...
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 快速操作 */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Link href="/scanner">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                开始扫描
+              </CardTitle>
+              <CardDescription>
+                立即执行网络扫描任务
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
+        <Link href="/tasks">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                任务管理
+              </CardTitle>
+              <CardDescription>
+                管理定时扫描任务
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
+        <Link href="/assets">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Server className="h-5 w-5" />
+                资产管理
+              </CardTitle>
+              <CardDescription>
+                查看和管理网络资产
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+      </div>
+    </div>
   );
 }

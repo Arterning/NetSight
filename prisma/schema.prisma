@@ -15,14 +15,21 @@ model Asset {
   id                      String    @id @default(cuid())
   ip                      String    @unique
   domain                  String?
-  status                  String
+  status                  String    @default("Active")
   openPorts               String?
-  valuePropositionScore   Int
-  summary                 String?   @db.Text
+  valuePropositionScore   Int       @default(0)
+  summary                 String?   
   geolocation             String?
   services                String?
-  networkTopology         String?   @db.Text
+  networkTopology         String?   
   taskName                String
+  name                    String?   // 资产名称
+  description             String?   // 资产描述
+  tags                    String?   // 标签，用逗号分隔
+  owner                   String?   // 资产所有者
+  department              String?   // 所属部门
+  priority                String    @default("Medium") // Low, Medium, High, Critical
+  isDeleted               Boolean   @default(false) // 软删除标记
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 }

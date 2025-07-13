@@ -40,7 +40,11 @@ export type DetermineBusinessValueOutput = z.infer<
 export async function determineBusinessValue(
   input: DetermineBusinessValueInput
 ): Promise<DetermineBusinessValueOutput> {
-  return determineBusinessValueFlow(input);
+  // return determineBusinessValueFlow(input);
+  return {
+    businessValueSummary: "This is a test summary",
+    valuePropositionScore: 80,
+  };
 }
 
 const prompt = ai.definePrompt({

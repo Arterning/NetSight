@@ -23,7 +23,10 @@ const AnalyzeWebsiteContentOutputSchema = z.object({
 export type AnalyzeWebsiteContentOutput = z.infer<typeof AnalyzeWebsiteContentOutputSchema>;
 
 export async function analyzeWebsiteContent(input: AnalyzeWebsiteContentInput): Promise<AnalyzeWebsiteContentOutput> {
-  return analyzeWebsiteContentFlow(input);
+  // return analyzeWebsiteContentFlow(input);
+  return {
+    summary: "This is a test summary",
+  };
 }
 
 const prompt = ai.definePrompt({

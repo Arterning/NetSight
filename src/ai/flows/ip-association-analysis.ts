@@ -26,7 +26,13 @@ const IpAssociationAnalysisOutputSchema = z.object({
 export type IpAssociationAnalysisOutput = z.infer<typeof IpAssociationAnalysisOutputSchema>;
 
 export async function ipAssociationAnalysis(input: IpAssociationAnalysisInput): Promise<IpAssociationAnalysisOutput> {
-  return ipAssociationAnalysisFlow(input);
+  // return ipAssociationAnalysisFlow(input);
+  return {
+    domain: "test.com",
+    geolocation: "New York, USA",
+    networkTopology: "This is a test network topology",
+    services: "This is a test services",
+  };
 }
 
 const prompt = ai.definePrompt({

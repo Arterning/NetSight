@@ -4,7 +4,9 @@ import { z } from 'zod';
 import { analyzeWebsiteContent } from '@/ai/flows/analyze-website-content';
 import { determineBusinessValue } from '@/ai/flows/determine-business-value';
 import { ipAssociationAnalysis } from '@/ai/flows/ip-association-analysis';
-import type { Asset } from '@/components/asset-card';
+import type { Asset as AssetCardData } from '@/components/asset-card';
+import { prisma } from '@/lib/prisma';
+import type { Asset } from '@prisma/client';
 
 const formSchema = z.object({
   ipRange: z.string().min(1, 'IP range is required.'),
@@ -30,7 +32,7 @@ const getActiveIPs = () => {
 
 export async function scanAndAnalyzeAction(
   values: FormValues
-): Promise<{ data: Asset[] | null; error: string | null }> {
+): Promise<{ data: AssetCardData[] | null; error: string | null }> {
   const validation = formSchema.safeParse(values);
   if (!validation.success) {
     return { data: null, error: 'Invalid input.' };
@@ -41,6 +43,7 @@ export async function scanAndAnalyzeAction(
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     const activeIPs = getActiveIPs();
+    const taskName = `Scan_${new Date().toISOString()}`;
 
     const analysisPromises = activeIPs.map(async (ip) => {
       const mockContent = mockContents[ip] || `<html><body><h1>No content found for ${ip}</h1></body></html>`;
@@ -51,6 +54,25 @@ export async function scanAndAnalyzeAction(
         determineBusinessValue({ websiteUrl: mockUrl, websiteContent: mockContent }),
         ipAssociationAnalysis({ ipAddress: ip }),
       ]);
+      
+      const assetData = {
+        ip: ip,
+        domain: associationResult.domain,
+        status: 'Active',
+        openPorts: '80, 443', // Mock data
+        valuePropositionScore: businessValueResult.valuePropositionScore,
+        summary: analysisResult.summary,
+        geolocation: associationResult.geolocation,
+        services: associationResult.services,
+        networkTopology: associationResult.networkTopology,
+        taskName: taskName,
+      };
+
+      await prisma.asset.upsert({
+        where: { ip: ip },
+        update: assetData,
+        create: assetData,
+      });
 
       return {
         ip,
@@ -66,4 +88,12 @@ export async function scanAndAnalyzeAction(
     console.error('Error during scan and analysis:', error);
     return { data: null, error: 'Failed to complete analysis. Please try again.' };
   }
+}
+
+export async function getAssets(): Promise<Asset[]> {
+    return prisma.asset.findMany({
+        orderBy: {
+            createdAt: 'desc'
+        }
+    });
 }

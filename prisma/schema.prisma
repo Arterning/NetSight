@@ -1,0 +1,27 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Asset {
+  id                    String    @id @default(cuid())
+  ip                    String    @unique
+  domain                String?
+  status                String
+  openPorts             String?
+  valuePropositionScore Int
+  summary               String?
+  geolocation           String?
+  services              String?
+  networkTopology       String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  taskName              String    @default("Initial Scan")
+}

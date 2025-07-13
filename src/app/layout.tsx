@@ -4,6 +4,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { cn } from '@/lib/utils';
+import { AppHeader } from '@/components/app-header';
 
 const fontBody = Inter({
   subsets: ['latin'],
@@ -43,7 +44,10 @@ export default function RootLayout({
         )}
       >
         <ThemeProvider>
-          {children}
+          <div className="flex min-h-screen w-full flex-col">
+            <AppHeader />
+            <main className="flex-1 container py-8">{children}</main>
+          </div>
           <Toaster />
         </ThemeProvider>
       </body>

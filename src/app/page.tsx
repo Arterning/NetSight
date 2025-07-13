@@ -29,7 +29,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { AssetCard, type Asset } from '@/components/asset-card';
 import { scanAndAnalyzeAction } from '@/lib/actions';
 import { Loader2, ScanLine, Telescope } from 'lucide-react';
@@ -71,106 +70,95 @@ export default function Home() {
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col">
-      <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Telescope className="h-6 w-6" />
-            <h1 className="text-xl font-bold">NetSight</h1>
-          </div>
-          <ThemeToggle />
-        </div>
-      </header>
-      <main className="flex-1 container py-8">
-        <section className="mb-12">
-          <Card className="max-w-2xl mx-auto">
-            <CardHeader>
-              <CardTitle>Network Scan</CardTitle>
-              <CardDescription>
-                Enter an IP range to scan for active assets and analyze them.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="ipRange"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>IP Range</FormLabel>
+    <>
+      <section className="mb-12">
+        <Card className="max-w-2xl mx-auto">
+          <CardHeader>
+            <CardTitle>Network Scan</CardTitle>
+            <CardDescription>
+              Enter an IP range to scan for active assets and analyze them.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="ipRange"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>IP Range</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., 192.168.1.1/24 or 10.0.0.1-50" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="scanRate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Scan Rate</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
                         <FormControl>
-                          <Input placeholder="e.g., 192.168.1.1/24 or 10.0.0.1-50" {...field} />
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a scan rate" />
+                          </SelectTrigger>
                         </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="scanRate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Scan Rate</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a scan rate" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="slow">Slow</SelectItem>
-                            <SelectItem value="normal">Normal</SelectItem>
-                            <SelectItem value="fast">Fast</SelectItem>
-                            <SelectItem value="adaptive">Adaptive</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="submit" className="w-full" disabled={isPending}>
-                    {isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <ScanLine className="mr-2 h-4 w-4" />
-                    )}
-                    {isPending ? 'Scanning...' : 'Start Scan'}
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
-        </section>
+                        <SelectContent>
+                          <SelectItem value="slow">Slow</SelectItem>
+                          <SelectItem value="normal">Normal</SelectItem>
+                          <SelectItem value="fast">Fast</SelectItem>
+                          <SelectItem value="adaptive">Adaptive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full" disabled={isPending}>
+                  {isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <ScanLine className="mr-2 h-4 w-4" />
+                  )}
+                  {isPending ? 'Scanning...' : 'Start Scan'}
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </section>
 
-        <section>
-          {isPending ? (
-            <div className="flex flex-col items-center justify-center gap-4 text-center">
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <h2 className="text-2xl font-semibold">Scanning Network</h2>
-              <p className="text-muted-foreground">
-                Identifying active IPs and analyzing assets. This may take a moment...
+      <section>
+        {isPending ? (
+          <div className="flex flex-col items-center justify-center gap-4 text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <h2 className="text-2xl font-semibold">Scanning Network</h2>
+            <p className="text-muted-foreground">
+              Identifying active IPs and analyzing assets. This may take a moment...
+            </p>
+          </div>
+        ) : results.length > 0 ? (
+          <div>
+            <h2 className="text-3xl font-bold mb-6">Scan Results</h2>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {results.map((asset) => (
+                <AssetCard key={asset.ip} asset={asset} />
+              ))}
+            </div>
+          </div>
+        ) : (
+           <div className="text-center py-16 px-4 border-2 border-dashed rounded-lg">
+              <Telescope className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-semibold">Ready to Discover</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Your scan results will appear here once you start a scan.
               </p>
-            </div>
-          ) : results.length > 0 ? (
-            <div>
-              <h2 className="text-3xl font-bold mb-6">Scan Results</h2>
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {results.map((asset) => (
-                  <AssetCard key={asset.ip} asset={asset} />
-                ))}
-              </div>
-            </div>
-          ) : (
-             <div className="text-center py-16 px-4 border-2 border-dashed rounded-lg">
-                <Telescope className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-semibold">Ready to Discover</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Your scan results will appear here once you start a scan.
-                </p>
-            </div>
-          )}
-        </section>
-      </main>
-    </div>
+          </div>
+        )}
+      </section>
+    </>
   );
 }

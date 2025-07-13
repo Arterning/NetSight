@@ -32,4 +32,36 @@ model Asset {
   isDeleted               Boolean   @default(false) // 软删除标记
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
+  taskExecutionId         String?
+  taskExecution           TaskExecution? @relation(fields: [taskExecutionId], references: [id])
+}
+
+model ScheduledTask {
+  id              String    @id @default(cuid())
+  name            String    // 任务名称
+  description     String?   // 任务描述
+  ipRange         String    // IP范围
+  scanRate        String    // 扫描速率
+  scheduleType    String    // 执行周期：once, daily, weekly, every3days, monthly
+  isActive        Boolean   @default(true) // 任务是否激活
+  nextRunAt       DateTime? // 下次执行时间
+  lastRunAt       DateTime? // 上次执行时间
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  executions      TaskExecution[]
+}
+
+model TaskExecution {
+  id              String    @id @default(cuid())
+  scheduledTaskId String
+  scheduledTask   ScheduledTask @relation(fields: [scheduledTaskId], references: [id])
+  status          String    // 执行状态：waiting, running, completed, failed
+  startTime       DateTime? // 开始时间
+  endTime         DateTime? // 结束时间
+  duration        Int?      // 执行时长（秒）
+  errorMessage    String?   // 错误信息
+  assetsFound     Int       @default(0) // 发现的资产数量
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  assets          Asset[]
 }

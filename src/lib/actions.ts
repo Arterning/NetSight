@@ -10,8 +10,12 @@ import type { Asset } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
 const formSchema = z.object({
-  ipRange: z.string().min(1, 'IP range is required.'),
+  taskName: z.string().min(1, '任务名称是必需的。'),
+  description: z.string().optional(),
+  ipRange: z.string().min(1, 'IP范围是必需的。'),
   scanRate: z.string(),
+  isScheduled: z.boolean(),
+  scheduleType: z.string().optional(),
 });
 
 const assetSchema = z.object({
@@ -52,11 +56,35 @@ export async function scanAndAnalyzeAction(
   }
 
   try {
+    // 如果是定时任务，先创建任务
+    let scheduledTaskId: string | null = null;
+    if (values.isScheduled && values.scheduleType) {
+      const task = await createScheduledTask(values);
+      if (task.error) {
+        return { data: null, error: task.error };
+      }
+      scheduledTaskId = task.data?.id || null;
+    }
+
     // Simulate network latency for scanning
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     const activeIPs = getActiveIPs();
-    const taskName = `Scan_${new Date().toISOString()}`;
+    const taskName = values.taskName || `Scan_${new Date().toISOString()}`;
+
+    // 创建任务执行记录
+    let taskExecutionId: string | null = null;
+    if (scheduledTaskId) {
+      const execution = await prisma.taskExecution.create({
+        data: {
+          scheduledTaskId,
+          status: 'running',
+          startTime: new Date(),
+          assetsFound: 0,
+        }
+      });
+      taskExecutionId = execution.id;
+    }
 
     const analysisPromises = activeIPs.map(async (ip) => {
       const mockContent = mockContents[ip] || `<html><body><h1>No content found for ${ip}</h1></body></html>`;
@@ -79,6 +107,7 @@ export async function scanAndAnalyzeAction(
         services: associationResult.services,
         networkTopology: associationResult.networkTopology,
         taskName: taskName,
+        taskExecutionId: taskExecutionId,
       };
 
       await prisma.asset.upsert({
@@ -96,11 +125,123 @@ export async function scanAndAnalyzeAction(
     });
 
     const results = await Promise.all(analysisPromises);
+
+    // 更新任务执行记录
+    if (taskExecutionId) {
+      const endTime = new Date();
+      const startTime = await prisma.taskExecution.findUnique({
+        where: { id: taskExecutionId },
+        select: { startTime: true }
+      });
+
+      const duration = startTime?.startTime 
+        ? Math.floor((endTime.getTime() - startTime.startTime.getTime()) / 1000)
+        : null;
+
+      await prisma.taskExecution.update({
+        where: { id: taskExecutionId },
+        data: {
+          status: 'completed',
+          endTime,
+          duration,
+          assetsFound: results.length,
+        }
+      });
+
+      // 更新定时任务的下次执行时间
+      if (scheduledTaskId) {
+        await updateNextRunTime(scheduledTaskId, values.scheduleType!);
+      }
+    }
+
     revalidatePath('/');
+    revalidatePath('/tasks');
     return { data: results, error: null };
   } catch (error) {
     console.error('Error during scan and analysis:', error);
     return { data: null, error: 'Failed to complete analysis. Please try again.' };
+  }
+}
+
+async function createScheduledTask(values: FormValues): Promise<{ data: any; error: string | null }> {
+  try {
+    // 计算下次执行时间
+    let nextRunAt: Date | null = null;
+    const now = new Date();
+
+    switch (values.scheduleType) {
+      case 'once':
+        nextRunAt = now;
+        break;
+      case 'daily':
+        nextRunAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        break;
+      case 'weekly':
+        nextRunAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'every3days':
+        nextRunAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+        break;
+      case 'monthly':
+        nextRunAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        nextRunAt = now;
+    }
+
+    const task = await prisma.scheduledTask.create({
+      data: {
+        name: values.taskName,
+        description: values.description,
+        ipRange: values.ipRange,
+        scanRate: values.scanRate,
+        scheduleType: values.scheduleType!,
+        nextRunAt,
+        isActive: true
+      }
+    });
+
+    return { data: task, error: null };
+  } catch (error) {
+    console.error('Error creating scheduled task:', error);
+    return { data: null, error: 'Failed to create scheduled task.' };
+  }
+}
+
+async function updateNextRunTime(taskId: string, scheduleType: string): Promise<void> {
+  try {
+    const now = new Date();
+    let nextRunAt: Date;
+
+    switch (scheduleType) {
+      case 'once':
+        // 一次性任务不需要更新下次执行时间
+        return;
+      case 'daily':
+        nextRunAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        break;
+      case 'weekly':
+        nextRunAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'every3days':
+        nextRunAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+        break;
+      case 'monthly':
+        nextRunAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        return;
+    }
+
+    await prisma.scheduledTask.update({
+      where: { id: taskId },
+      data: {
+        nextRunAt,
+        lastRunAt: now
+      }
+    });
+  } catch (error) {
+    console.error('Error updating next run time:', error);
   }
 }
 

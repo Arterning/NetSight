@@ -55,6 +55,15 @@ export function AssetActions({ asset, onAssetUpdate }: AssetActionsProps) {
     description: asset.description || '',
     status: asset.status,
     priority: asset.priority,
+    ip: asset.ip || '',
+    domain: asset.domain || '',
+    openPorts: asset.openPorts || '',
+    summary: asset.summary || '',
+    geolocation: asset.geolocation || '',
+    services: asset.services || '',
+    networkTopology: asset.networkTopology || '',
+    tags: asset.tags || '',
+    department: asset.department || '',
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -141,6 +150,42 @@ export function AssetActions({ asset, onAssetUpdate }: AssetActionsProps) {
           </DialogHeader>
           <form onSubmit={handleEditSubmit}>
             <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="ip" className="text-right">IP</Label>
+                <Input id="ip" value={formData.ip} onChange={handleInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="domain" className="text-right">Domain</Label>
+                <Input id="domain" value={formData.domain} onChange={handleInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="openPorts" className="text-right">Open Ports</Label>
+                <Input id="openPorts" value={formData.openPorts} onChange={handleInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="summary" className="text-right">Summary</Label>
+                <Textarea id="summary" value={formData.summary} onChange={handleInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="geolocation" className="text-right">Geolocation</Label>
+                <Input id="geolocation" value={formData.geolocation} onChange={handleInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="services" className="text-right">Services</Label>
+                <Input id="services" value={formData.services} onChange={handleInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="networkTopology" className="text-right">Network Topology</Label>
+                <Input id="networkTopology" value={formData.networkTopology} onChange={handleInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="tags" className="text-right">Tags</Label>
+                <Input id="tags" value={formData.tags} onChange={handleInputChange} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="department" className="text-right">Department</Label>
+                <Input id="department" value={formData.department} onChange={handleInputChange} className="col-span-3" />
+              </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">Name</Label>
                 <Input id="name" value={formData.name} onChange={handleInputChange} className="col-span-3" />

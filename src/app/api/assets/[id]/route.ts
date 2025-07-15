@@ -11,9 +11,10 @@ const assetUpdateSchema = z.object({
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { id } = context.params;
     const body = await request.json();
     const validation = assetUpdateSchema.safeParse(body);
 
@@ -22,7 +23,7 @@ export async function PATCH(
     }
 
     const updatedAsset = await prisma.asset.update({
-      where: { id: params.id },
+      where: { id: id },
       data: validation.data,
     });
 
@@ -35,17 +36,18 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { id } = context.params;
     // Before deleting the asset, we need to delete related records
     // due to foreign key constraints.
     await prisma.webpage.deleteMany({
-      where: { assetId: params.id },
+      where: { assetId: id },
     });
 
     await prisma.asset.delete({
-      where: { id: params.id },
+      where: { id: id },
     });
 
     return new NextResponse(null, { status: 204 }); // No Content

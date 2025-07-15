@@ -41,6 +41,7 @@ import {
   Loader2
 } from 'lucide-react';
 import Link from 'next/link';
+import { rerunScheduledTaskAction } from '@/lib/task-actions';
 
 interface ScheduledTask {
   id: string;
@@ -72,6 +73,7 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<ScheduledTask | null>(null);
+  const [rerunLoadingId, setRerunLoadingId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchTasks = useCallback(async () => {
@@ -258,16 +260,20 @@ export default function TasksPage() {
                         variant="default"
                         size="sm"
                         onClick={async () => {
-                          const res = await fetch(`/api/tasks/${task.id}/rerun`, { method: 'POST' });
-                          if (res.ok) {
+                          setRerunLoadingId(task.id);
+                          const result = await rerunScheduledTaskAction(task.id);
+                          setRerunLoadingId(null);
+                          if (!result.error) {
                             toast({ title: '任务已重新运行' });
                             fetchTasks();
                           } else {
-                            toast({ variant: 'destructive', title: '重新运行失败' });
+                            toast({ variant: 'destructive', title: '重新运行失败', description: result.error });
                           }
                         }}
+                        disabled={rerunLoadingId === task.id}
                       >
-                        <Play className="w-4 h-4 mr-1" />重新运行
+                        {rerunLoadingId === task.id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Play className="w-4 h-4 mr-1" />}
+                        重新运行
                       </Button>
                       <Button
                         variant="destructive"

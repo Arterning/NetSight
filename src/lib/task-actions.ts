@@ -1,6 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { scanAndAnalyzeAction } from '@/lib/actions';
 
 // Types for scheduled task creation
 export type ScheduledTaskValues = {
@@ -102,4 +103,32 @@ export async function getScanHistory(): Promise<any[]> {
       startTime: 'desc',
     },
   });
+}
+
+export async function rerunScheduledTaskAction(taskId: string) {
+  // 查找定时任务的最新参数
+  const scheduledTask = await prisma.scheduledTask.findUnique({ where: { id: taskId } });
+  if (!scheduledTask) {
+    return { error: 'Task not found', data: null };
+  }
+  // 组装 scanAndAnalyzeAction 参数
+  const values = {
+    taskName: scheduledTask.name,
+    description: scheduledTask.description || '',
+    ipRange: scheduledTask.ipRange || undefined,
+    url: scheduledTask.ipRange,
+    crawlDepth: '3',
+    extractImages: true,
+    valueKeywords: ['政府', '国家', '金融监管'],
+    scanRate: scheduledTask.scanRate,
+    isScheduled: false,
+    scheduleType: scheduledTask.scheduleType,
+  };
+  if ((!scheduledTask.ipRange || scheduledTask.ipRange === '') && scheduledTask.name && scheduledTask.name.startsWith('http')) {
+    (values as any).url = scheduledTask.name;
+    values.ipRange = undefined;
+  }
+  // 运行扫描分析
+  const result = await scanAndAnalyzeAction(values);
+  return result;
 } 

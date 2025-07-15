@@ -390,7 +390,7 @@ export default function ScannerPage() {
             <h2 className="text-3xl font-bold mb-6">扫描结果</h2>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {results.map((asset) => (
-                <AssetCard key={asset.ip} asset={asset} />
+                <AssetCard key={asset.id} asset={asset} />
               ))}
             </div>
           </div>

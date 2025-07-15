@@ -106,6 +106,7 @@ export async function scanAndAnalyzeAction(
       let content: string;
       let ip: string;
       let displayUrl: string;
+      let htmlContent = '';
 
       if (target.type === 'url') {
         displayUrl = target.value;
@@ -121,8 +122,13 @@ export async function scanAndAnalyzeAction(
           console.error(`Failed to fetch ${displayUrl}: ${response.statusText}`);
           content = `Failed to fetch content from ${displayUrl}`;
         } else {
-          const htmlContent = await response.text();
-          content = htmlContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+          htmlContent = await response.text();
+          // For analysis, use stripped text. For DB, store raw-ish content.
+          content = htmlContent.replace(/<style[^>]*>.*?<\/style>/gs, ' ')
+                               .replace(/<script[^>]*>.*?<\/script>/gs, ' ')
+                               .replace(/<[^>]*>/g, ' ')
+                               .replace(/\s+/g, ' ')
+                               .trim();
         }
       } catch (e: any) {
         console.error(`Error fetching ${displayUrl}:`, e);
@@ -149,17 +155,34 @@ export async function scanAndAnalyzeAction(
         taskExecutionId: taskExecutionId,
       };
 
-      await prisma.asset.upsert({
+      const upsertedAsset = await prisma.asset.upsert({
         where: { ip: ip },
         update: assetData,
         create: assetData,
       });
+
+      // If we have HTML content, save it to the Webpage table
+      if (htmlContent) {
+        const titleMatch = htmlContent.match(/<title>(.*?)<\/title>/i);
+        const title = titleMatch ? titleMatch[1] : 'No Title Found';
+
+        await prisma.webpage.create({
+          data: {
+            assetId: upsertedAsset.id,
+            url: displayUrl,
+            title: title,
+            content: htmlContent, // Store the full HTML
+            isHomepage: true, // This is the first page crawled
+          }
+        });
+      }
 
       return {
         ip,
         analysis: analysisResult,
         businessValue: businessValueResult,
         association: associationResult,
+        id: upsertedAsset.id, // Pass the ID back
       };
     });
 
@@ -415,6 +438,19 @@ export async function getScanHistory(): Promise<TaskExecution[]> {
     },
     orderBy: {
       startTime: 'desc',
+    },
+  });
+}
+
+export async function getAssetWithWebpages(assetId: string) {
+  return prisma.asset.findUnique({
+    where: { id: assetId },
+    include: {
+      webpages: {
+        orderBy: {
+          createdAt: 'desc',
+        },
+      },
     },
   });
 }

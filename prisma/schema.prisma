@@ -34,6 +34,21 @@ model Asset {
   updatedAt               DateTime  @updatedAt
   taskExecutionId         String?
   taskExecution           TaskExecution? @relation(fields: [taskExecutionId], references: [id])
+  webpages                Webpage[]
+}
+
+model Webpage {
+  id          String   @id @default(cuid())
+  url         String
+  title       String?
+  content     String?
+  isHomepage  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  assetId     String
+  asset       Asset    @relation(fields: [assetId], references: [id])
+
+  @@index([assetId])
 }
 
 model ScheduledTask {

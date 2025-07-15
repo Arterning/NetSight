@@ -67,15 +67,17 @@ export async function scanAndAnalyzeAction(
   }
 
   try {
-    // 如果是定时任务，先创建任务
+    // 无论是定时任务还是一次性任务，都需要先创建任务
     let scheduledTaskId: string | null = null;
     if (values.isScheduled && values.scheduleType) {
-      const task = await createScheduledTask(values);
-      if (task.error) {
-        return { data: null, error: task.error };
-      }
-      scheduledTaskId = task.data?.id || null;
+      console.log('Creating scheduled task...');
     }
+
+    const task = await createScheduledTask(values);
+    if (task.error) {
+      return { data: null, error: task.error };
+    }
+    scheduledTaskId = task.data?.id || null;
 
     let analysisTargets: {type: 'ip' | 'url', value: string}[] = [];
 
@@ -90,17 +92,15 @@ export async function scanAndAnalyzeAction(
 
     // 创建任务执行记录
     let taskExecutionId: string | null = null;
-    if (scheduledTaskId) {
-      const execution = await prisma.taskExecution.create({
-        data: {
-          scheduledTaskId,
-          status: 'running',
-          startTime: new Date(),
-          assetsFound: 0,
-        }
-      });
-      taskExecutionId = execution.id;
-    }
+    const execution = await prisma.taskExecution.create({
+      data: {
+        scheduledTaskId,
+        status: 'running',
+        startTime: new Date(),
+        assetsFound: 0,
+      }
+    });
+    taskExecutionId = execution.id;
 
     const analysisPromises = analysisTargets.map(async (target) => {
       let content: string;

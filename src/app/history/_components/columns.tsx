@@ -47,7 +47,7 @@ export const columns: ColumnDef<ScanHistory>[] = [
     accessorKey: 'scheduledTask.scheduleType',
     header: '类型',
     cell: ({ row }) => {
-        const scheduleType = row.original.scheduledTask.scheduleType;
+        const scheduleType = row.original.scheduledTask?.scheduleType;
         return <Badge variant="outline">{scheduleType === 'once' ? '手动扫描' : '定时任务'}</Badge>
     }
   },

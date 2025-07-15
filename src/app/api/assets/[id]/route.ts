@@ -7,6 +7,15 @@ const assetUpdateSchema = z.object({
   description: z.string().optional(),
   status: z.enum(['Active', 'Inactive', 'Maintenance']).optional(),
   priority: z.enum(['Low', 'Medium', 'High', 'Critical']).optional(),
+  ip: z.string().optional(),
+  domain: z.string().optional(),
+  openPorts: z.string().optional(),
+  summary: z.string().optional(),
+  geolocation: z.string().optional(),
+  services: z.string().optional(),
+  networkTopology: z.string().optional(),
+  tags: z.string().optional(),
+  department: z.string().optional(),
 });
 
 export async function PATCH(

@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -16,11 +15,11 @@ import { useToast } from '@/hooks/use-toast';
 import { AssetCard, type Asset } from '@/components/asset-card';
 import { 
   Search, 
-  Filter, 
   Plus,
   Server,
   Activity,
-  AlertCircle
+  AlertCircle,
+  HeartPulse,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -31,72 +30,47 @@ export default function AssetsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchAssets();
-  }, []);
-
-  const fetchAssets = async () => {
+  const fetchAssets = useCallback(async () => {
+    setLoading(true);
     try {
       const response = await fetch('/api/assets');
       if (response.ok) {
         const data = await response.json();
         setAssets(data);
+      } else {
+        throw new Error('Failed to fetch assets');
       }
     } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to fetch assets',
+        description: 'Failed to fetch assets. Please try again later.',
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchAssets();
+  }, [fetchAssets]);
 
   const filteredAssets = assets.filter(asset => {
+    const searchTermLower = searchTerm.toLowerCase();
     const matchesSearch = 
-      asset.ip.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      asset.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      asset.domain?.toLowerCase().includes(searchTerm.toLowerCase());
+      asset.ip.toLowerCase().includes(searchTermLower) ||
+      (asset.name && asset.name.toLowerCase().includes(searchTermLower)) ||
+      (asset.domain && asset.domain.toLowerCase().includes(searchTermLower));
     
     const matchesStatus = statusFilter === 'all' || asset.status === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-      Active: 'default',
-      Inactive: 'secondary',
-      Maintenance: 'outline',
-    };
-
+  if (loading && assets.length === 0) {
     return (
-      <Badge variant={variants[status] || 'secondary'}>
-        {status}
-      </Badge>
-    );
-  };
-
-  const getPriorityBadge = (priority: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-      Low: 'secondary',
-      Medium: 'default',
-      High: 'outline',
-      Critical: 'destructive',
-    };
-
-    return (
-      <Badge variant={variants[priority] || 'secondary'}>
-        {priority}
-      </Badge>
-    );
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
+        <div className="flex items-center gap-2 text-muted-foreground">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           <span>Loading assets...</span>
         </div>
@@ -122,7 +96,7 @@ export default function AssetsPage() {
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid gap-4 md:grid-cols-4 mb-8">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">总资产</CardTitle>
@@ -136,7 +110,7 @@ export default function AssetsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">活跃</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <HeartPulse className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -147,7 +121,7 @@ export default function AssetsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">高优先级</CardTitle>
+            <CardTitle className="text-sm font-medium">高/危急</CardTitle>
             <AlertCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -160,7 +134,7 @@ export default function AssetsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">维护中</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -173,13 +147,13 @@ export default function AssetsPage() {
       {/* 搜索和过滤 */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-base">
             <Search className="h-5 w-5" />
             搜索和过滤
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
+          <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <Input
                 placeholder="搜索IP、名称或域名..."
@@ -188,7 +162,7 @@ export default function AssetsPage() {
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full md:w-[180px]">
                 <SelectValue placeholder="选择状态" />
               </SelectTrigger>
               <SelectContent>
@@ -203,7 +177,10 @@ export default function AssetsPage() {
       </Card>
 
       {/* 资产列表 */}
-      {filteredAssets.length === 0 ? (
+      {loading && assets.length > 0 && (
+         <div className="text-center text-muted-foreground py-4">刷新中...</div>
+      )}
+      {!loading && filteredAssets.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Server className="h-12 w-12 text-muted-foreground mb-4" />
@@ -231,9 +208,9 @@ export default function AssetsPage() {
               显示 {filteredAssets.length} 个资产
             </p>
           </div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredAssets.map((asset) => (
-              <AssetCard key={asset.ip} asset={asset} />
+              <AssetCard key={asset.id} asset={asset} onAssetUpdate={fetchAssets} />
             ))}
           </div>
         </div>

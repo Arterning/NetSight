@@ -22,7 +22,7 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
 
   return (
     <div className="container mx-auto py-10">
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="flex flex-col gap-8">
         <div className="md:col-span-2">
           <Card>
             <CardHeader>

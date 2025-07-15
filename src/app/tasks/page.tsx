@@ -249,18 +249,25 @@ export default function TasksPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => toggleTaskStatus(task.id, task.isActive)}
+                        disabled={task.executions.some(e => e.status === 'completed')}
                       >
-                        {task.isActive ? (
-                          <>
-                            <Pause className="h-4 w-4 mr-2" />
-                            暂停
-                          </>
-                        ) : (
-                          <>
-                            <Play className="h-4 w-4 mr-2" />
-                            恢复
-                          </>
-                        )}
+                        {task.isActive ? <Pause className="w-4 h-4 mr-1" /> : <Play className="w-4 h-4 mr-1" />}
+                        {task.isActive ? '暂停' : '恢复'}
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={async () => {
+                          const res = await fetch(`/api/tasks/${task.id}/rerun`, { method: 'POST' });
+                          if (res.ok) {
+                            toast({ title: '任务已重新运行' });
+                            fetchTasks();
+                          } else {
+                            toast({ variant: 'destructive', title: '重新运行失败' });
+                          }
+                        }}
+                      >
+                        <Play className="w-4 h-4 mr-1" />重新运行
                       </Button>
                       <Button
                         variant="destructive"

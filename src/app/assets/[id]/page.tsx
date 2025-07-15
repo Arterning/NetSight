@@ -1,4 +1,4 @@
-import { getAssetWithWebpages } from '@/lib/actions';
+import { getAssetWithWebpages } from '@/lib/asset-actions';
 import { notFound } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

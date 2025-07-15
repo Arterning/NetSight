@@ -1,4 +1,4 @@
-import { getScanHistory } from '@/lib/actions';
+import { getScanHistory } from '@/lib/task-actions';
 import { HistoryTable } from './_components/history-table';
 import { columns, type ScanHistory } from './_components/columns';
 

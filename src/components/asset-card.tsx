@@ -37,7 +37,7 @@ export function AssetCard({ asset }: AssetCardProps) {
         </div>
         <CardDescription>
           <div className="flex items-center gap-2 text-xs">
-            <Globe className="w-3 h-3" /> {asset.association.domain}
+            <Globe className="w-3 h-3" /> {asset.association?.domain}
           </div>
         </CardDescription>
       </CardHeader>
@@ -45,14 +45,14 @@ export function AssetCard({ asset }: AssetCardProps) {
         <div>
           <h4 className="font-semibold text-sm mb-2 flex items-center gap-2"><Briefcase className="w-4 h-4 text-primary" /> Business Value</h4>
           <p className="text-xs text-muted-foreground mb-2">
-            {asset.businessValue.businessValueSummary}
+            {asset?.businessValue?.businessValueSummary}
           </p>
           <div className="space-y-1">
             <div className="flex justify-between items-center text-xs">
               <span className="text-muted-foreground">Value Proposition Score</span>
-              <span className="font-semibold">{asset.businessValue.valuePropositionScore}%</span>
+              <span className="font-semibold">{asset?.businessValue?.valuePropositionScore}%</span>
             </div>
-            <Progress value={asset.businessValue.valuePropositionScore} className="h-2" />
+            <Progress value={asset?.businessValue?.valuePropositionScore} className="h-2" />
           </div>
         </div>
 
@@ -61,7 +61,7 @@ export function AssetCard({ asset }: AssetCardProps) {
         <div>
           <h4 className="font-semibold text-sm mb-2 flex items-center gap-2"><FileText className="w-4 h-4 text-primary" /> Content Analysis</h4>
           <p className="text-xs text-muted-foreground">
-            {asset.analysis.summary}
+            {asset?.analysis?.summary}
           </p>
         </div>
 
@@ -72,11 +72,11 @@ export function AssetCard({ asset }: AssetCardProps) {
            <div className="space-y-2 text-xs">
              <div className="flex items-start gap-2">
                 <MapPin className="w-3 h-3 mt-0.5 shrink-0" />
-                <span className="text-muted-foreground">{asset.association.geolocation}</span>
+                <span className="text-muted-foreground">{asset.association?.geolocation}</span>
              </div>
              <div className="flex items-start gap-2">
                 <Server className="w-3 h-3 mt-0.5 shrink-0" />
-                <span className="text-muted-foreground">{asset.association.services}</span>
+                <span className="text-muted-foreground">{asset.association?.services}</span>
              </div>
            </div>
         </div>

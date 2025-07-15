@@ -33,16 +33,32 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { AssetCard, type Asset } from '@/components/asset-card';
 import { scanAndAnalyzeAction } from '@/lib/actions';
-import { Loader2, ScanLine, Telescope, Clock, Calendar } from 'lucide-react';
+import { Loader2, ScanLine, Telescope, Calendar, X } from 'lucide-react';
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
 
 const formSchema = z.object({
   taskName: z.string().min(1, '任务名称是必需的。'),
   description: z.string().optional(),
-  ipRange: z.string().min(1, 'IP范围是必需的。'),
+  ipRange: z.string().optional(),
+  url: z.string().optional(),
+  crawlDepth: z.string().default('full'),
+  extractImages: z.boolean().default(true),
+  valueKeywords: z.array(z.string()).default(['政府', '国家', '金融监管']),
   scanRate: z.string(),
   isScheduled: z.boolean(),
   scheduleType: z.string().optional(),
+}).refine((data) => {
+  if (data.url) {
+    return z.string().url({ message: "请输入有效的URL。" }).safeParse(data.url).success && (data.url.startsWith('http://') || data.url.startsWith('https://'));
+  }
+  return true;
+}, {
+  message: "URL必须是以 http:// 或 https:// 开头的有效链接。",
+  path: ["url"],
+}).refine((data) => data.ipRange || data.url, {
+  message: "IP范围或URL至少需要填写一个。",
+  path: ["ipRange"],
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -51,18 +67,40 @@ export default function ScannerPage() {
   const [isPending, startTransition] = useTransition();
   const [results, setResults] = useState<Asset[]>([]);
   const { toast } = useToast();
-
+  
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       taskName: '',
       description: '',
       ipRange: '192.168.1.1-255',
+      url: '',
       scanRate: 'adaptive',
       isScheduled: false,
       scheduleType: 'once',
+      crawlDepth: 'full',
+      extractImages: true,
+      valueKeywords: ['政府', '国家', '金融监管'],
     },
   });
+
+  const [keywords, setKeywords] = useState<string[]>(form.getValues('valueKeywords') || []);
+  const [keywordInput, setKeywordInput] = useState('');
+
+  const handleAddKeyword = () => {
+    if (keywordInput && !keywords.includes(keywordInput)) {
+      const newKeywords = [...keywords, keywordInput];
+      setKeywords(newKeywords);
+      form.setValue('valueKeywords', newKeywords);
+      setKeywordInput('');
+    }
+  };
+
+  const handleRemoveKeyword = (keywordToRemove: string) => {
+    const newKeywords = keywords.filter(k => k !== keywordToRemove);
+    setKeywords(newKeywords);
+    form.setValue('valueKeywords', newKeywords);
+  };
 
   const isScheduled = form.watch('isScheduled');
 
@@ -95,9 +133,9 @@ export default function ScannerPage() {
           <CardHeader>
             <div className="flex justify-between items-center">
               <div>
-                <CardTitle>网络扫描</CardTitle>
+                <CardTitle>网络扫描与分析</CardTitle>
                 <CardDescription>
-                  输入IP范围来扫描活跃资产并分析它们。
+                  输入IP范围或URL来扫描活跃资产并进行分析。
                 </CardDescription>
               </div>
               <Link href="/tasks">
@@ -147,11 +185,109 @@ export default function ScannerPage() {
                   name="ipRange"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>IP范围</FormLabel>
+                      <FormLabel>IP范围 (可选)</FormLabel>
                       <FormControl>
                         <Input placeholder="例如：192.168.1.1/24 或 10.0.0.1-50" {...field} />
                       </FormControl>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="url"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>URL (可选)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="例如：https://example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="crawlDepth"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>爬取深度</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isPending}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="选择爬取深度" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="full">全站</SelectItem>
+                          <SelectItem value="level1">仅目标页面</SelectItem>
+                          <SelectItem value="level2">目标页面及其链接</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="extractImages"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">提取图片</FormLabel>
+                        <div className="text-sm text-muted-foreground">
+                          在爬取时提取并分析图片资源
+                        </div>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="valueKeywords"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>价值评估关键词</FormLabel>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={keywordInput}
+                          onChange={(e) => setKeywordInput(e.target.value)}
+                          placeholder="添加自定义关键词"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddKeyword();
+                            }
+                          }}
+                        />
+                        <Button type="button" onClick={handleAddKeyword} disabled={!keywordInput.trim()}>
+                          添加
+                        </Button>
+                      </div>
+                      <FormMessage />
+                      <div className="flex flex-wrap gap-2 mt-2 min-h-[2.5rem] p-2 border rounded-md">
+                        {keywords.map((keyword) => (
+                          <Badge key={keyword} variant="secondary" className="flex items-center gap-1">
+                            {keyword}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveKeyword(keyword)}
+                              className="rounded-full hover:bg-muted-foreground/20 p-0.5"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
                     </FormItem>
                   )}
                 />
@@ -271,3 +407,4 @@ export default function ScannerPage() {
     </>
   );
 }
+

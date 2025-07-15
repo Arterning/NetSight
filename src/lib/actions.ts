@@ -85,6 +85,7 @@ export async function scanAndAnalyzeAction(
     const task = await createScheduledTask({
       taskName: values.taskName,
       description: values.description,
+      domain: values.url ? new URL(values.url).hostname : '',
       ipRange: values.ipRange,
       scanRate: values.scanRate,
       scheduleType: values.scheduleType || 'once',

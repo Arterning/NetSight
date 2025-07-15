@@ -116,7 +116,7 @@ export async function rerunScheduledTaskAction(taskId: string) {
     taskName: scheduledTask.name,
     description: scheduledTask.description || '',
     ipRange: scheduledTask.ipRange || undefined,
-    url: scheduledTask.ipRange,
+    domain: scheduledTask.domain,
     crawlDepth: '3',
     extractImages: true,
     valueKeywords: ['政府', '国家', '金融监管'],

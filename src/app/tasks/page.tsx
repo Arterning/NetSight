@@ -47,6 +47,7 @@ interface ScheduledTask {
   id: string;
   name: string;
   description?: string | null;
+  domain: string;
   ipRange: string;
   scanRate: string;
   scheduleType: string;
@@ -287,6 +288,10 @@ export default function TasksPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <div>
+                      <p className="text-sm font-medium text-muted-foreground">域名</p>
+                      <p className="text-sm">{task.domain}</p>
+                    </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">IP范围</p>
                       <p className="text-sm">{task.ipRange}</p>

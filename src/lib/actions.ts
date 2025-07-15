@@ -117,11 +117,65 @@ export async function scanAndAnalyzeAction(
     });
     taskExecutionId = execution.id;
 
+    const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number = 3) => {
+      const visited = new Set<string>();
+      const queue: { url: string; depth: number }[] = [{ url: startUrl, depth: 0 }];
+      const urls: string[] = [];
+      const urlObj = new URL(startUrl);
+      const baseDomain = urlObj.hostname;
+      while (queue.length > 0) {
+        const { url, depth } = queue.shift()!;
+        if (visited.has(url) || depth > maxDepth) continue;
+        visited.add(url);
+        urls.push(url);
+        let htmlContent = '';
+        let title = '';
+        try {
+          const response = await fetch(url);
+          if (!response.ok) continue;
+          htmlContent = await response.text();
+          const titleMatch = htmlContent.match(/<title>(.*?)<\/title>/i);
+          title = titleMatch ? titleMatch[1] : 'No Title Found';
+          // 保存页面内容到数据库
+          await prisma.webpage.upsert({
+            where: { assetId_url: { assetId, url } },
+            update: { content: htmlContent, title, isHomepage: depth === 0 },
+            create: { assetId, url, content: htmlContent, title, isHomepage: depth === 0 },
+          });
+          // 解析所有同域下的链接
+          const linkRegex = /<a\s+(?:[^>]*?\s+)?href=["']([^"'#>]+)["']/gi;
+          let match;
+          while ((match = linkRegex.exec(htmlContent)) !== null) {
+            let link = match[1];
+            if (link.startsWith('//')) link = urlObj.protocol + link;
+            else if (link.startsWith('/')) link = urlObj.origin + link;
+            else if (!/^https?:\/\//.test(link)) link = urlObj.origin + (urlObj.pathname.endsWith('/') ? '' : '/') + link;
+            try {
+              const linkObj = new URL(link, urlObj.origin);
+              if (linkObj.hostname === baseDomain && !visited.has(linkObj.href)) {
+                queue.push({ url: linkObj.href, depth: depth + 1 });
+              }
+            } catch {}
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+      // 生成 sitemap.xml
+      const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+        urls.map(u => `  <url><loc>${u}</loc></url>`).join('\n') +
+        '\n</urlset>';
+      await prisma.asset.update({ where: { id: assetId }, data: { sitemapXml } });
+      return { urls, sitemapXml };
+    };
+
     const analysisPromises = analysisTargets.map(async (target) => {
       let content: string;
       let ip: string;
       let displayUrl: string;
       let htmlContent = '';
+      let crawledUrls: string[] = [];
+      let sitemapXml = '';
 
       if (target.type === 'url') {
         displayUrl = target.value;
@@ -131,73 +185,91 @@ export async function scanAndAnalyzeAction(
         displayUrl = `http://${ip}`;
       }
 
+      // 递归爬取整个网站
+      let assetId: string | null = null;
+      let homepageContent = '';
+      let homepageTitle = '';
       try {
+        // 先保存首页内容
         const response = await fetch(displayUrl);
-        if (!response.ok) {
-          console.error(`Failed to fetch ${displayUrl}: ${response.statusText}`);
-          content = `Failed to fetch content from ${displayUrl}`;
-        } else {
-          htmlContent = await response.text();
-          // For analysis, use stripped text. For DB, store raw-ish content.
-          content = htmlContent.replace(/<style[^>]*>.*?<\/style>/gs, ' ')
-                               .replace(/<script[^>]*>.*?<\/script>/gs, ' ')
-                               .replace(/<[^>]*>/g, ' ')
-                               .replace(/\s+/g, ' ')
-                               .trim();
+        if (response.ok) {
+          homepageContent = await response.text();
+          const titleMatch = homepageContent.match(/<title>(.*?)<\/title>/i);
+          homepageTitle = titleMatch ? titleMatch[1] : 'No Title Found';
         }
-      } catch (e: any) {
-        console.error(`Error fetching ${displayUrl}:`, e);
-        content = `Error fetching content from ${displayUrl}: ${e.message}`;
+      } catch {}
+
+      // 先 upsert asset，获得 assetId
+      const assetData = {
+        ip: ip,
+        domain: target.type === 'url' ? new URL(target.value).hostname : '',
+        status: 'Active',
+        openPorts: '80, 443', // Mock data
+        valuePropositionScore: 0,
+        summary: '',
+        geolocation: '',
+        services: '',
+        networkTopology: '',
+        taskName: taskName,
+        taskExecutionId: taskExecutionId,
+      };
+      const upsertedAsset = await prisma.asset.upsert({
+        where: { ip: ip },
+        update: assetData,
+        create: assetData,
+      });
+      assetId = upsertedAsset.id;
+
+      // 保存首页内容到 Webpage
+      if (homepageContent) {
+        await prisma.webpage.upsert({
+          where: { assetId_url: { assetId, url: displayUrl } },
+          update: { content: homepageContent, title: homepageTitle, isHomepage: true },
+          create: { assetId, url: displayUrl, content: homepageContent, title: homepageTitle, isHomepage: true },
+        });
       }
+
+      // 爬取全站并生成 sitemap
+      const crawlDepth = parseInt(values.crawlDepth || '3', 10);
+      const crawlResult = await crawlWebsite(displayUrl, assetId, crawlDepth);
+      crawledUrls = crawlResult.urls;
+      sitemapXml = crawlResult.sitemapXml;
+
+      // 分析首页内容
+      content = homepageContent
+        ? homepageContent.replace(/<style[^>]*>.*?<\/style>/g, ' ')
+                         .replace(/<script[^>]*>.*?<\/script>/g, ' ')
+                         .replace(/<[^>]*>/g, ' ')
+                         .replace(/\s+/g, ' ')
+                         .trim()
+        : '';
 
       const [analysisResult, businessValueResult, associationResult] = await Promise.all([
         analyzeWebsiteContent({ url: displayUrl, content: content }),
         determineBusinessValue({ websiteUrl: displayUrl, websiteContent: content }),
         ipAssociationAnalysis({ ipAddress: ip }),
       ]);
-      
-      const assetData = {
-        ip: ip,
-        domain: associationResult.domain || (target.type === 'url' ? new URL(target.value).hostname : ''),
-        status: 'Active',
-        openPorts: '80, 443', // Mock data
-        valuePropositionScore: businessValueResult.valuePropositionScore,
-        summary: analysisResult.summary,
-        geolocation: associationResult.geolocation,
-        services: associationResult.services,
-        networkTopology: associationResult.networkTopology,
-        taskName: taskName,
-        taskExecutionId: taskExecutionId,
-      };
 
-      const upsertedAsset = await prisma.asset.upsert({
-        where: { ip: ip },
-        update: assetData,
-        create: assetData,
+      // 更新 asset 的分析信息
+      await prisma.asset.update({
+        where: { id: assetId },
+        data: {
+          valuePropositionScore: businessValueResult.valuePropositionScore,
+          summary: analysisResult.summary,
+          geolocation: associationResult.geolocation,
+          services: associationResult.services,
+          networkTopology: associationResult.networkTopology,
+        },
       });
-
-      // If we have HTML content, save it to the Webpage table
-      if (htmlContent) {
-        const titleMatch = htmlContent.match(/<title>(.*?)<\/title>/i);
-        const title = titleMatch ? titleMatch[1] : 'No Title Found';
-
-        await prisma.webpage.create({
-          data: {
-            assetId: upsertedAsset.id,
-            url: displayUrl,
-            title: title,
-            content: htmlContent, // Store the full HTML
-            isHomepage: true, // This is the first page crawled
-          }
-        });
-      }
 
       return {
         ip,
         analysis: analysisResult,
         businessValue: businessValueResult,
         association: associationResult,
-        id: upsertedAsset.id, // Pass the ID back
+        id: assetId,
+        sitemapXml,
+        crawledUrls,
       };
     });
 

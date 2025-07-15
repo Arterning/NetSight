@@ -35,6 +35,7 @@ model Asset {
   taskExecutionId         String?
   taskExecution           TaskExecution? @relation(fields: [taskExecutionId], references: [id])
   webpages                Webpage[]
+  sitemapXml              String?   // 存储sitemap.xml内容
 }
 
 model Webpage {
@@ -49,6 +50,7 @@ model Webpage {
   asset       Asset    @relation(fields: [assetId], references: [id])
 
   @@index([assetId])
+  @@unique([assetId, url])
 }
 
 model ScheduledTask {

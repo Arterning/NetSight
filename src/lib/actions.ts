@@ -12,10 +12,26 @@ import { revalidatePath } from 'next/cache';
 const formSchema = z.object({
   taskName: z.string().min(1, '任务名称是必需的。'),
   description: z.string().optional(),
-  ipRange: z.string().min(1, 'IP范围是必需的。'),
+  ipRange: z.string().optional(),
+  url: z.string().optional(),
+  crawlDepth: z.string().default('full'),
+  extractImages: z.boolean().default(true),
+  valueKeywords: z.array(z.string()).default(['政府', '国家', '金融监管']),
   scanRate: z.string(),
   isScheduled: z.boolean(),
   scheduleType: z.string().optional(),
+}).refine((data) => {
+  if (data.url) {
+    const urlValidation = z.string().url({ message: "请输入有效的URL。" }).safeParse(data.url);
+    return urlValidation.success && (data.url.startsWith('http://') || data.url.startsWith('https://'));
+  }
+  return true;
+}, {
+  message: "URL必须是以 http:// 或 https:// 开头的有效链接。",
+  path: ["url"],
+}).refine((data) => data.ipRange || data.url, {
+  message: "IP范围或URL至少需要填写一个。",
+  path: ["ipRange"], // Also applies to url, but path needs one.
 });
 
 const assetSchema = z.object({
@@ -32,16 +48,10 @@ const assetSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 type AssetFormValues = z.infer<typeof assetSchema>;
 
-const mockContents: { [key: string]: string } = {
-  '192.168.1.23': `<html><title>Innovatech Solutions</title><body><h1>Innovatech Solutions</h1><p>We provide cutting-edge AI-driven solutions for enterprise customers.</p></body></html>`,
-  '192.168.1.58': `<html><title>CloudSphere Hosting</title><body><h1>CloudSphere Hosting</h1><p>Reliable and scalable cloud hosting for your business-critical applications.</p></body></html>`,
-  '192.168.1.102': `<html><title>Gamer's Hub</title><body><h1>Gamer's Hub</h1><p>Your one-stop shop for gaming news, reviews, and community forums.</p></body></html>`,
-  '192.168.1.174': `<html><title>OpenSource Project - NetWeaver</title><body><h1>NetWeaver</h1><p>A free, open-source library for network packet analysis.</p></body></html>`,
-  '192.168.1.219': `<html><title>SecureVault VPN</title><body><h1>SecureVault VPN</h1><p>Protect your online privacy with our military-grade encrypted VPN service.</p></body></html>`,
-};
-
-// Simulate finding active IPs
-const getActiveIPs = () => {
+// Simulate finding active IPs for IP range scan
+const getActiveIPsFromRange = (ipRange: string) => {
+  // This is still a mock. In a real scenario, this would involve a network scan.
+  console.log(`Simulating scan for IP range: ${ipRange}`);
   const ips = ['192.168.1.23', '192.168.1.58', '192.168.1.102', '192.168.1.174', '192.168.1.219'];
   const count = Math.floor(Math.random() * 3) + 3; // 3 to 5 results
   return ips.sort(() => 0.5 - Math.random()).slice(0, count);
@@ -52,7 +62,8 @@ export async function scanAndAnalyzeAction(
 ): Promise<{ data: AssetCardData[] | null; error: string | null }> {
   const validation = formSchema.safeParse(values);
   if (!validation.success) {
-    return { data: null, error: 'Invalid input.' };
+    const error = validation.error.errors[0];
+    return { data: null, error: `${error.path.join('.')}: ${error.message}` };
   }
 
   try {
@@ -66,10 +77,15 @@ export async function scanAndAnalyzeAction(
       scheduledTaskId = task.data?.id || null;
     }
 
-    // Simulate network latency for scanning
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    let analysisTargets: {type: 'ip' | 'url', value: string}[] = [];
 
-    const activeIPs = getActiveIPs();
+    if (values.url) {
+      analysisTargets.push({ type: 'url', value: values.url });
+    } else if (values.ipRange) {
+      const activeIPs = getActiveIPsFromRange(values.ipRange);
+      analysisTargets = activeIPs.map(ip => ({ type: 'ip', value: ip }));
+    }
+
     const taskName = values.taskName || `Scan_${new Date().toISOString()}`;
 
     // 创建任务执行记录
@@ -86,19 +102,42 @@ export async function scanAndAnalyzeAction(
       taskExecutionId = execution.id;
     }
 
-    const analysisPromises = activeIPs.map(async (ip) => {
-      const mockContent = mockContents[ip] || `<html><body><h1>No content found for ${ip}</h1></body></html>`;
-      const mockUrl = `http://${ip}`;
+    const analysisPromises = analysisTargets.map(async (target) => {
+      let content: string;
+      let ip: string;
+      let displayUrl: string;
+
+      if (target.type === 'url') {
+        displayUrl = target.value;
+        ip = new URL(displayUrl).hostname; // Using hostname as a stand-in for IP
+      } else { // ip
+        ip = target.value;
+        displayUrl = `http://${ip}`;
+      }
+
+      try {
+        const response = await fetch(displayUrl);
+        if (!response.ok) {
+          console.error(`Failed to fetch ${displayUrl}: ${response.statusText}`);
+          content = `Failed to fetch content from ${displayUrl}`;
+        } else {
+          const htmlContent = await response.text();
+          content = htmlContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+      } catch (e: any) {
+        console.error(`Error fetching ${displayUrl}:`, e);
+        content = `Error fetching content from ${displayUrl}: ${e.message}`;
+      }
 
       const [analysisResult, businessValueResult, associationResult] = await Promise.all([
-        analyzeWebsiteContent({ url: mockUrl, content: mockContent }),
-        determineBusinessValue({ websiteUrl: mockUrl, websiteContent: mockContent }),
+        analyzeWebsiteContent({ url: displayUrl, content: content }),
+        determineBusinessValue({ websiteUrl: displayUrl, websiteContent: content }),
         ipAssociationAnalysis({ ipAddress: ip }),
       ]);
       
       const assetData = {
         ip: ip,
-        domain: associationResult.domain,
+        domain: associationResult.domain || (target.type === 'url' ? new URL(target.value).hostname : ''),
         status: 'Active',
         openPorts: '80, 443', // Mock data
         valuePropositionScore: businessValueResult.valuePropositionScore,

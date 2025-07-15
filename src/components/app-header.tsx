@@ -9,13 +9,15 @@ import {
   Home, 
   Activity, 
   Calendar, 
-  Server, 
+  Server,
+  History,
   Settings 
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: '扫描', href: '/scanner', icon: Activity },
+  { name: '扫描历史', href: '/history', icon: History },
   { name: '任务管理', href: '/tasks', icon: Calendar },
   { name: '资产管理', href: '/assets', icon: Server },
 ];

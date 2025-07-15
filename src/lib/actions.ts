@@ -407,3 +407,14 @@ export async function getAssetStats(): Promise<{
 
     return stats;
 }
+
+export async function getScanHistory(): Promise<TaskExecution[]> {
+  return prisma.taskExecution.findMany({
+    include: {
+      scheduledTask: true, // Include the related scheduled task to get its name
+    },
+    orderBy: {
+      startTime: 'desc',
+    },
+  });
+}

@@ -6,8 +6,8 @@ import { determineBusinessValue } from '@/ai/flows/determine-business-value';
 import { ipAssociationAnalysis } from '@/ai/flows/ip-association-analysis';
 import type { Asset as AssetCardData } from '@/components/asset-card';
 import { prisma } from '@/lib/prisma';
-import type { Asset } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
+import { createScheduledTask, updateNextRunTime } from '@/lib/task-actions';
 
 const formSchema = z.object({
   taskName: z.string().min(1, '任务名称是必需的。'),
@@ -31,7 +31,7 @@ const formSchema = z.object({
   path: ["url"],
 }).refine((data) => data.ipRange || data.url, {
   message: "IP范围或URL至少需要填写一个。",
-  path: ["ipRange"], // Also applies to url, but path needs one.
+  path: ["ipRange"],
 });
 
 const assetSchema = z.object({
@@ -57,9 +57,18 @@ const getActiveIPsFromRange = (ipRange: string) => {
   return ips.sort(() => 0.5 - Math.random()).slice(0, count);
 };
 
+// Define the result type for scanAndAnalyzeAction
+export type ScanAndAnalyzeResult = {
+  ip: string;
+  analysis: { summary: string };
+  businessValue: { valuePropositionScore: number; businessValueSummary: string };
+  association: { domain: string; geolocation: string; services: string; networkTopology: string };
+  id: string;
+};
+
 export async function scanAndAnalyzeAction(
   values: FormValues
-): Promise<{ data: AssetCardData[] | null; error: string | null }> {
+): Promise<{ data: ScanAndAnalyzeResult[] | null; error: string | null }> {
   const validation = formSchema.safeParse(values);
   if (!validation.success) {
     const error = validation.error.errors[0];
@@ -73,7 +82,13 @@ export async function scanAndAnalyzeAction(
       console.log('Creating scheduled task...');
     }
 
-    const task = await createScheduledTask(values);
+    const task = await createScheduledTask({
+      taskName: values.taskName,
+      description: values.description,
+      ipRange: values.ipRange,
+      scanRate: values.scanRate,
+      scheduleType: values.scheduleType || 'once',
+    });
     if (task.error) {
       return { data: null, error: task.error };
     }
@@ -223,234 +238,4 @@ export async function scanAndAnalyzeAction(
     console.error('Error during scan and analysis:', error);
     return { data: null, error: 'Failed to complete analysis. Please try again.' };
   }
-}
-
-async function createScheduledTask(values: FormValues): Promise<{ data: any; error: string | null }> {
-  try {
-    // 计算下次执行时间
-    let nextRunAt: Date | null = null;
-    const now = new Date();
-
-    switch (values.scheduleType) {
-      case 'once':
-        nextRunAt = now;
-        break;
-      case 'daily':
-        nextRunAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-        break;
-      case 'weekly':
-        nextRunAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        break;
-      case 'every3days':
-        nextRunAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-        break;
-      case 'monthly':
-        nextRunAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-        break;
-      default:
-        nextRunAt = now;
-    }
-
-    const task = await prisma.scheduledTask.create({
-      data: {
-        name: values.taskName,
-        description: values.description,
-        ipRange: values.ipRange,
-        scanRate: values.scanRate,
-        scheduleType: values.scheduleType!,
-        nextRunAt,
-        isActive: true
-      }
-    });
-
-    return { data: task, error: null };
-  } catch (error) {
-    console.error('Error creating scheduled task:', error);
-    return { data: null, error: 'Failed to create scheduled task.' };
-  }
-}
-
-async function updateNextRunTime(taskId: string, scheduleType: string): Promise<void> {
-  try {
-    const now = new Date();
-    let nextRunAt: Date;
-
-    switch (scheduleType) {
-      case 'once':
-        // 一次性任务不需要更新下次执行时间
-        return;
-      case 'daily':
-        nextRunAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-        break;
-      case 'weekly':
-        nextRunAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        break;
-      case 'every3days':
-        nextRunAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-        break;
-      case 'monthly':
-        nextRunAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-        break;
-      default:
-        return;
-    }
-
-    await prisma.scheduledTask.update({
-      where: { id: taskId },
-      data: {
-        nextRunAt,
-        lastRunAt: now
-      }
-    });
-  } catch (error) {
-    console.error('Error updating next run time:', error);
-  }
-}
-
-export async function getAssets(search?: string, filter?: string): Promise<Asset[]> {
-    const where: any = {
-        isDeleted: false
-    };
-
-    if (search) {
-        where.OR = [
-            { ip: { contains: search, mode: 'insensitive' } },
-            { name: { contains: search, mode: 'insensitive' } },
-            { domain: { contains: search, mode: 'insensitive' } },
-            { owner: { contains: search, mode: 'insensitive' } },
-            { department: { contains: search, mode: 'insensitive' } },
-        ];
-    }
-
-    if (filter) {
-        where.status = filter;
-    }
-
-    return prisma.asset.findMany({
-        where,
-        orderBy: {
-            createdAt: 'desc'
-        }
-    });
-}
-
-export async function getAssetById(id: string): Promise<Asset | null> {
-    return prisma.asset.findFirst({
-        where: {
-            id,
-            isDeleted: false
-        }
-    });
-}
-
-export async function createAssetAction(values: AssetFormValues): Promise<{ success: boolean; error?: string }> {
-    const validation = assetSchema.safeParse(values);
-    if (!validation.success) {
-        return { success: false, error: 'Invalid input data.' };
-    }
-
-    try {
-        await prisma.asset.create({
-            data: {
-                ...values,
-                domain: values.domain || '',
-                openPorts: '',
-                valuePropositionScore: 0,
-                summary: '',
-                geolocation: '',
-                services: '',
-                networkTopology: '',
-                taskName: 'Manual Entry',
-            }
-        });
-        revalidatePath('/');
-        return { success: true };
-    } catch (error) {
-        console.error('Error creating asset:', error);
-        return { success: false, error: 'Failed to create asset.' };
-    }
-}
-
-export async function updateAssetAction(id: string, values: AssetFormValues): Promise<{ success: boolean; error?: string }> {
-    const validation = assetSchema.safeParse(values);
-    if (!validation.success) {
-        return { success: false, error: 'Invalid input data.' };
-    }
-
-    try {
-        await prisma.asset.update({
-            where: { id },
-            data: values
-        });
-        revalidatePath('/');
-        return { success: true };
-    } catch (error) {
-        console.error('Error updating asset:', error);
-        return { success: false, error: 'Failed to update asset.' };
-    }
-}
-
-export async function deleteAssetAction(id: string): Promise<{ success: boolean; error?: string }> {
-    try {
-        await prisma.asset.update({
-            where: { id },
-            data: { isDeleted: true }
-        });
-        revalidatePath('/');
-        return { success: true };
-    } catch (error) {
-        console.error('Error deleting asset:', error);
-        return { success: false, error: 'Failed to delete asset.' };
-    }
-}
-
-export async function getAssetStats(): Promise<{
-    total: number;
-    active: number;
-    inactive: number;
-    maintenance: number;
-    byPriority: { [key: string]: number };
-}> {
-    const assets = await prisma.asset.findMany({
-        where: { isDeleted: false }
-    });
-
-    const stats = {
-        total: assets.length,
-        active: assets.filter(a => a.status === 'Active').length,
-        inactive: assets.filter(a => a.status === 'Inactive').length,
-        maintenance: assets.filter(a => a.status === 'Maintenance').length,
-        byPriority: {
-            Low: assets.filter(a => a.priority === 'Low').length,
-            Medium: assets.filter(a => a.priority === 'Medium').length,
-            High: assets.filter(a => a.priority === 'High').length,
-            Critical: assets.filter(a => a.priority === 'Critical').length,
-        }
-    };
-
-    return stats;
-}
-
-export async function getScanHistory(): Promise<TaskExecution[]> {
-  return prisma.taskExecution.findMany({
-    include: {
-      scheduledTask: true, // Include the related scheduled task to get its name
-    },
-    orderBy: {
-      startTime: 'desc',
-    },
-  });
-}
-
-export async function getAssetWithWebpages(assetId: string) {
-  return prisma.asset.findUnique({
-    where: { id: assetId },
-    include: {
-      webpages: {
-        orderBy: {
-          createdAt: 'desc',
-        },
-      },
-    },
-  });
 }

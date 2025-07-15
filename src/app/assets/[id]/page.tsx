@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Globe, FileText, Server, MapPin, Briefcase, Network } from 'lucide-react';
 import { WebpageViewer } from './_components/webpage-viewer';
+import { SitemapDownloader } from './_components/sitemap-downloader';
 
 type AssetDetailPageProps = {
   params: {
@@ -66,22 +67,29 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Webpages ({asset.webpages.length})</CardTitle>
-              <CardDescription>Crawled pages from this asset.</CardDescription>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Webpages ({asset.webpages.length})</CardTitle>
+                  <CardDescription>Crawled pages from this asset.</CardDescription>
+                </div>
+                <SitemapDownloader sitemapXml={asset.sitemapXml} />
+              </div>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-3">
-                {asset.webpages.map((page) => (
-                  <li key={page.id} className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <FileText className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium truncate" title={page.title || ''}>{page.title || 'Untitled Page'}</span>
-                      {page.isHomepage && <Badge variant="secondary">Homepage</Badge>}
-                    </div>
-                    <WebpageViewer url={page.url} content={page.content || ''} />
-                  </li>
-                ))}
-              </ul>
+              <div className="max-h-[400px] overflow-y-auto pr-4">
+                <ul className="space-y-3">
+                  {asset.webpages.map((page) => (
+                    <li key={page.id} className="flex justify-between items-center">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <span className="font-medium truncate" title={page.title || page.url}>{page.title || 'Untitled Page'}</span>
+                        {page.isHomepage && <Badge variant="secondary">Homepage</Badge>}
+                      </div>
+                      <WebpageViewer url={page.url} content={page.content || ''} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </CardContent>
           </Card>
         </div>

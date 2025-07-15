@@ -77,7 +77,7 @@ export async function scanAndAnalyzeAction(
 
   try {
     // 无论是定时任务还是一次性任务，都需要先创建任务
-    let scheduledTaskId: string | null = null;
+    let scheduledTaskId = null;
     if (values.isScheduled && values.scheduleType) {
       console.log('Creating scheduled task...');
     }

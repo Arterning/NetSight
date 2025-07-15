@@ -141,7 +141,7 @@ export function AssetActions({ asset, onAssetUpdate }: AssetActionsProps) {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[700px]">
           <DialogHeader>
             <DialogTitle>Edit Asset</DialogTitle>
             <DialogDescription>
@@ -149,55 +149,51 @@ export function AssetActions({ asset, onAssetUpdate }: AssetActionsProps) {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditSubmit}>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="ip" className="text-right">IP</Label>
-                <Input id="ip" value={formData.ip} onChange={handleInputChange} className="col-span-3" />
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div>
+                <Label htmlFor="ip">IP</Label>
+                <Input id="ip" value={formData.ip} onChange={handleInputChange} />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="domain" className="text-right">Domain</Label>
-                <Input id="domain" value={formData.domain} onChange={handleInputChange} className="col-span-3" />
+              <div>
+                <Label htmlFor="domain">Domain</Label>
+                <Input id="domain" value={formData.domain} onChange={handleInputChange} />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="openPorts" className="text-right">Open Ports</Label>
-                <Input id="openPorts" value={formData.openPorts} onChange={handleInputChange} className="col-span-3" />
+              <div>
+                <Label htmlFor="openPorts">Open Ports</Label>
+                <Input id="openPorts" value={formData.openPorts} onChange={handleInputChange} />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="summary" className="text-right">Summary</Label>
-                <Textarea id="summary" value={formData.summary} onChange={handleInputChange} className="col-span-3" />
+              <div>
+                <Label htmlFor="geolocation">Geolocation</Label>
+                <Input id="geolocation" value={formData.geolocation} onChange={handleInputChange} />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="geolocation" className="text-right">Geolocation</Label>
-                <Input id="geolocation" value={formData.geolocation} onChange={handleInputChange} className="col-span-3" />
+              <div>
+                <Label htmlFor="services">Services</Label>
+                <Input id="services" value={formData.services} onChange={handleInputChange} />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="services" className="text-right">Services</Label>
-                <Input id="services" value={formData.services} onChange={handleInputChange} className="col-span-3" />
+              <div>
+                <Label htmlFor="networkTopology">Network Topology</Label>
+                <Input id="networkTopology" value={formData.networkTopology} onChange={handleInputChange} />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="networkTopology" className="text-right">Network Topology</Label>
-                <Input id="networkTopology" value={formData.networkTopology} onChange={handleInputChange} className="col-span-3" />
+              <div>
+                <Label htmlFor="tags">Tags</Label>
+                <Input id="tags" value={formData.tags} onChange={handleInputChange} />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="tags" className="text-right">Tags</Label>
-                <Input id="tags" value={formData.tags} onChange={handleInputChange} className="col-span-3" />
+              <div>
+                <Label htmlFor="department">Department</Label>
+                <Input id="department" value={formData.department} onChange={handleInputChange} />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="department" className="text-right">Department</Label>
-                <Input id="department" value={formData.department} onChange={handleInputChange} className="col-span-3" />
+              <div className="col-span-2">
+                <Label htmlFor="name">Name</Label>
+                <Input id="name" value={formData.name} onChange={handleInputChange} />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">Name</Label>
-                <Input id="name" value={formData.name} onChange={handleInputChange} className="col-span-3" />
+              <div className="col-span-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea id="description" value={formData.description} onChange={handleInputChange} />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">Description</Label>
-                <Textarea id="description" value={formData.description} onChange={handleInputChange} className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="status" className="text-right">Status</Label>
+              <div>
+                <Label htmlFor="status">Status</Label>
                 <Select value={formData.status} onValueChange={handleSelectChange('status')}>
-                  <SelectTrigger className="col-span-3">
+                  <SelectTrigger>
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -207,10 +203,10 @@ export function AssetActions({ asset, onAssetUpdate }: AssetActionsProps) {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="priority" className="text-right">Priority</Label>
+              <div>
+                <Label htmlFor="priority">Priority</Label>
                 <Select value={formData.priority} onValueChange={handleSelectChange('priority')}>
-                  <SelectTrigger className="col-span-3">
+                  <SelectTrigger>
                     <SelectValue placeholder="Select priority" />
                   </SelectTrigger>
                   <SelectContent>

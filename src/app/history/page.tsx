@@ -1,9 +1,9 @@
 import { getScanHistory } from '@/lib/actions';
 import { HistoryTable } from './_components/history-table';
-import { columns } from './_components/columns';
+import { columns, type ScanHistory } from './_components/columns';
 
 export default async function ScanHistoryPage() {
-  const history = await getScanHistory();
+  const history: ScanHistory[] = await getScanHistory();
 
   return (
     <div className="container mx-auto py-10">

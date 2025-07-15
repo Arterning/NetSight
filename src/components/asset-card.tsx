@@ -14,10 +14,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Briefcase, FileText, Globe, MapPin, Network, Server } from 'lucide-react';
+import type { Asset as PrismaAsset } from '@prisma/client';
 
-export type Asset = {
-  id: string; // Make sure asset includes an ID
-  ip: string;
+export type Asset = PrismaAsset & {
   analysis: AnalyzeWebsiteContentOutput;
   businessValue: DetermineBusinessValueOutput;
   association: IpAssociationAnalysisOutput;

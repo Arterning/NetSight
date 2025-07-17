@@ -73,7 +73,7 @@ export default function ScannerPage() {
     defaultValues: {
       taskName: '',
       description: '',
-      ipRange: '192.168.1.1-255',
+      ipRange: '',
       url: '',
       scanRate: 'adaptive',
       isScheduled: false,

@@ -43,6 +43,7 @@ model Webpage {
   url         String
   title       String?
   content     String?
+  htmlContent String?
   isHomepage  Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

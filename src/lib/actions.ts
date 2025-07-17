@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { analyzeWebsiteContent } from '@/ai/flows/analyze-website-content';
 import { determineBusinessValue } from '@/ai/flows/determine-business-value';
 import { ipAssociationAnalysis } from '@/ai/flows/ip-association-analysis';
-import type { Asset as AssetCardData } from '@/components/asset-card';
+import { crawlPage } from './crawl';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { createScheduledTask, updateNextRunTime } from '@/lib/task-actions';
@@ -132,32 +132,43 @@ export async function scanAndAnalyzeAction(
         let htmlContent = '';
         let title = '';
         try {
-          const response = await fetch(url);
-          if (!response.ok) continue;
-          htmlContent = await response.text();
-          const titleMatch = htmlContent.match(/<title>(.*?)<\/title>/i);
-          title = titleMatch ? titleMatch[1] : 'No Title Found';
+
+          const response = await crawlPage(url);
+          htmlContent = response.text
+          title = response.title;
+          // 清理内容中的 null 字节
+          const cleanHtmlContent = htmlContent.replace(/\x00/g, '');
           // 保存页面内容到数据库
           await prisma.webpage.upsert({
             where: { assetId_url: { assetId, url } },
-            update: { content: htmlContent, title, isHomepage: depth === 0 },
-            create: { assetId, url, content: htmlContent, title, isHomepage: depth === 0 },
+            update: { content: cleanHtmlContent, title, isHomepage: depth === 0 },
+            create: { assetId, url, content: cleanHtmlContent, title, isHomepage: depth === 0 },
           });
+          
+          const links = response.links || [];
+
+          queue.push(
+            ...links.map(link => {
+              return { url: link, depth: depth + 1 };
+            }
+            ).filter(Boolean) as { url: string; depth: number }[]
+          );
+
           // 解析所有同域下的链接
-          const linkRegex = /<a\s+(?:[^>]*?\s+)?href=["']([^"'#>]+)["']/gi;
-          let match;
-          while ((match = linkRegex.exec(htmlContent)) !== null) {
-            let link = match[1];
-            if (link.startsWith('//')) link = urlObj.protocol + link;
-            else if (link.startsWith('/')) link = urlObj.origin + link;
-            else if (!/^https?:\/\//.test(link)) link = urlObj.origin + (urlObj.pathname.endsWith('/') ? '' : '/') + link;
-            try {
-              const linkObj = new URL(link, urlObj.origin);
-              if (linkObj.hostname === baseDomain && !visited.has(linkObj.href)) {
-                queue.push({ url: linkObj.href, depth: depth + 1 });
-              }
-            } catch {}
-          }
+          // const linkRegex = /<a\s+(?:[^>]*?\s+)?href=["']([^"'#>]+)["']/gi;
+          // let match;
+          // while ((match = linkRegex.exec(htmlContent)) !== null) {
+          //   let link = match[1];
+          //   if (link.startsWith('//')) link = urlObj.protocol + link;
+          //   else if (link.startsWith('/')) link = urlObj.origin + link;
+          //   else if (!/^https?:\/\//.test(link)) link = urlObj.origin + (urlObj.pathname.endsWith('/') ? '' : '/') + link;
+          //   try {
+          //     const linkObj = new URL(link, urlObj.origin);
+          //     if (linkObj.hostname === baseDomain && !visited.has(linkObj.href)) {
+          //       queue.push({ url: linkObj.href, depth: depth + 1 });
+          //     }
+          //   } catch {}
+          // }
         } catch (e) {
           continue;
         }
@@ -223,9 +234,10 @@ export async function scanAndAnalyzeAction(
 
       // 保存首页内容到 Webpage
       if (homepageContent) {
+        const cleanHomepageContent = homepageContent.replace(/\x00/g, '');
         await prisma.webpage.upsert({
           where: { assetId_url: { assetId, url: displayUrl } },
-          update: { content: homepageContent, title: homepageTitle, isHomepage: true },
+          update: { content: cleanHomepageContent, title: homepageTitle, isHomepage: true },
           create: { assetId, url: displayUrl, content: homepageContent, title: homepageTitle, isHomepage: true },
         });
       }
@@ -251,15 +263,21 @@ export async function scanAndAnalyzeAction(
         ipAssociationAnalysis({ ip: ip || displayUrl }),
       ]);
 
+      console.log(`Analysis for ${displayUrl} completed:`, {
+        analysisResult,
+        businessValueResult,
+        associationResult,
+      });
+
       // 更新 asset 的分析信息
       await prisma.asset.update({
         where: { id: assetId },
         data: {
-          valuePropositionScore: businessValueResult.valuePropositionScore,
-          summary: analysisResult.summary,
-          geolocation: associationResult.geolocation,
-          services: associationResult.services,
-          networkTopology: associationResult.networkTopology,
+          valuePropositionScore: 8,
+          summary: analysisResult,
+          geolocation: "China",
+          services: businessValueResult,
+          networkTopology: associationResult,
         },
       });
 

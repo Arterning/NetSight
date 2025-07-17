@@ -66,6 +66,61 @@ export type ScanAndAnalyzeResult = {
   id: string;
 };
 
+
+const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number = 3) => {
+  const visited = new Set<string>();
+  const queue: { url: string; depth: number }[] = [{ url: startUrl, depth: 0 }];
+  const urls: string[] = [];
+  let homepageContent = '';
+  let homepageTitle = '';
+  while (queue.length > 0) {
+    const { url, depth } = queue.shift()!;
+    if (visited.has(url) || depth > maxDepth) continue;
+    visited.add(url);
+    urls.push(url);
+    let htmlContent = '';
+    let title = '';
+    try {
+      const response = await crawlPage(url);
+      htmlContent = response.text
+      title = response.title;
+
+      if (homepageContent === '' && depth === 0) {
+        homepageContent = htmlContent;
+        homepageTitle = title;
+      }
+
+      // 清理内容中的 null 字节
+      const cleanHtmlContent = htmlContent.replace(/\x00/g, '');
+      // 保存页面内容到数据库
+      await prisma.webpage.upsert({
+        where: { assetId_url: { assetId, url } },
+        update: { content: cleanHtmlContent, title, isHomepage: depth === 0 },
+        create: { assetId, url, content: cleanHtmlContent, title, isHomepage: depth === 0 },
+      });
+      
+      const links = response.links || [];
+
+      queue.push(
+        ...links.map(link => {
+          return { url: link, depth: depth + 1 };
+        }
+        ).filter(Boolean) as { url: string; depth: number }[]
+      );
+
+      
+    } catch (e) {
+      continue;
+    }
+  }
+  // 生成 sitemap.xml
+  const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    urls.map(u => `  <url><loc>${u}</loc></url>`).join('\n') +
+    '\n</urlset>';
+  await prisma.asset.update({ where: { id: assetId }, data: { sitemapXml } });
+  return { urls, sitemapXml, homepageTitle, homepageContent };
+};
+
 export async function scanAndAnalyzeAction(
   values: FormValues
 ): Promise<{ data: ScanAndAnalyzeResult[] | null; error: string | null }> {
@@ -118,68 +173,6 @@ export async function scanAndAnalyzeAction(
     });
     taskExecutionId = execution.id;
 
-    const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number = 3) => {
-      const visited = new Set<string>();
-      const queue: { url: string; depth: number }[] = [{ url: startUrl, depth: 0 }];
-      const urls: string[] = [];
-      const urlObj = new URL(startUrl);
-      const baseDomain = urlObj.hostname;
-      while (queue.length > 0) {
-        const { url, depth } = queue.shift()!;
-        if (visited.has(url) || depth > maxDepth) continue;
-        visited.add(url);
-        urls.push(url);
-        let htmlContent = '';
-        let title = '';
-        try {
-
-          const response = await crawlPage(url);
-          htmlContent = response.text
-          title = response.title;
-          // 清理内容中的 null 字节
-          const cleanHtmlContent = htmlContent.replace(/\x00/g, '');
-          // 保存页面内容到数据库
-          await prisma.webpage.upsert({
-            where: { assetId_url: { assetId, url } },
-            update: { content: cleanHtmlContent, title, isHomepage: depth === 0 },
-            create: { assetId, url, content: cleanHtmlContent, title, isHomepage: depth === 0 },
-          });
-          
-          const links = response.links || [];
-
-          queue.push(
-            ...links.map(link => {
-              return { url: link, depth: depth + 1 };
-            }
-            ).filter(Boolean) as { url: string; depth: number }[]
-          );
-
-          // 解析所有同域下的链接
-          // const linkRegex = /<a\s+(?:[^>]*?\s+)?href=["']([^"'#>]+)["']/gi;
-          // let match;
-          // while ((match = linkRegex.exec(htmlContent)) !== null) {
-          //   let link = match[1];
-          //   if (link.startsWith('//')) link = urlObj.protocol + link;
-          //   else if (link.startsWith('/')) link = urlObj.origin + link;
-          //   else if (!/^https?:\/\//.test(link)) link = urlObj.origin + (urlObj.pathname.endsWith('/') ? '' : '/') + link;
-          //   try {
-          //     const linkObj = new URL(link, urlObj.origin);
-          //     if (linkObj.hostname === baseDomain && !visited.has(linkObj.href)) {
-          //       queue.push({ url: linkObj.href, depth: depth + 1 });
-          //     }
-          //   } catch {}
-          // }
-        } catch (e) {
-          continue;
-        }
-      }
-      // 生成 sitemap.xml
-      const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-        urls.map(u => `  <url><loc>${u}</loc></url>`).join('\n') +
-        '\n</urlset>';
-      await prisma.asset.update({ where: { id: assetId }, data: { sitemapXml } });
-      return { urls, sitemapXml };
-    };
 
     const analysisPromises = analysisTargets.map(async (target) => {
       let content: string;
@@ -201,15 +194,7 @@ export async function scanAndAnalyzeAction(
       let assetId: string | null = null;
       let homepageContent = '';
       let homepageTitle = '';
-      try {
-        // 先保存首页内容
-        const response = await fetch(displayUrl);
-        if (response.ok) {
-          homepageContent = await response.text();
-          const titleMatch = homepageContent.match(/<title>(.*?)<\/title>/i);
-          homepageTitle = titleMatch ? titleMatch[1] : 'No Title Found';
-        }
-      } catch {}
+      
 
       // 先 upsert asset，获得 assetId
       const assetData = {
@@ -232,21 +217,14 @@ export async function scanAndAnalyzeAction(
       });
       assetId = upsertedAsset.id;
 
-      // 保存首页内容到 Webpage
-      if (homepageContent) {
-        const cleanHomepageContent = homepageContent.replace(/\x00/g, '');
-        await prisma.webpage.upsert({
-          where: { assetId_url: { assetId, url: displayUrl } },
-          update: { content: cleanHomepageContent, title: homepageTitle, isHomepage: true },
-          create: { assetId, url: displayUrl, content: homepageContent, title: homepageTitle, isHomepage: true },
-        });
-      }
 
       // 爬取全站并生成 sitemap
       const crawlDepth = parseInt(values.crawlDepth || '3', 10);
       const crawlResult = await crawlWebsite(displayUrl, assetId, crawlDepth);
       crawledUrls = crawlResult.urls;
       sitemapXml = crawlResult.sitemapXml;
+      homepageContent = crawlResult.homepageContent;
+      homepageTitle = crawlResult.homepageTitle;
 
       // 分析首页内容
       content = homepageContent

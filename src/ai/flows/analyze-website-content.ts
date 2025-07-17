@@ -8,49 +8,15 @@
  * - AnalyzeWebsiteContentOutput - The return type for the analyzeWebsiteContent function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import OpenAI from 'openai';
 
-const AnalyzeWebsiteContentInputSchema = z.object({
-  url: z.string().url().describe('The URL of the website to analyze.'),
-  content: z.string().describe('The HTML content of the website.'),
-});
-export type AnalyzeWebsiteContentInput = z.infer<typeof AnalyzeWebsiteContentInputSchema>;
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const AnalyzeWebsiteContentOutputSchema = z.object({
-  summary: z.string().describe('A summary of the website content, including its purpose, function, and services.'),
-});
-export type AnalyzeWebsiteContentOutput = z.infer<typeof AnalyzeWebsiteContentOutputSchema>;
-
-export async function analyzeWebsiteContent(input: AnalyzeWebsiteContentInput): Promise<AnalyzeWebsiteContentOutput> {
-  // return analyzeWebsiteContentFlow(input);
-  return {
-    summary: "This is a test summary",
-  };
+export async function analyzeWebsiteContent(input: { url: string }) {
+  const prompt = `请分析这个网站的内容: ${input.url}`;
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-3.5-turbo',
+    messages: [{ role: 'user', content: prompt }],
+  });
+  return completion.choices[0].message.content;
 }
-
-const prompt = ai.definePrompt({
-  name: 'analyzeWebsiteContentPrompt',
-  input: {schema: AnalyzeWebsiteContentInputSchema},
-  output: {schema: AnalyzeWebsiteContentOutputSchema},
-  prompt: `You are an AI expert in analyzing website content.
-
-You will analyze the provided website content and summarize its purpose, function, and services.
-
-URL: {{{url}}}
-Content: {{{content}}}
-
-Summary:`,
-});
-
-const analyzeWebsiteContentFlow = ai.defineFlow(
-  {
-    name: 'analyzeWebsiteContentFlow',
-    inputSchema: AnalyzeWebsiteContentInputSchema,
-    outputSchema: AnalyzeWebsiteContentOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
-  }
-);

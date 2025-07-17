@@ -9,51 +9,15 @@
  * - IpAssociationAnalysisOutput - The return type for the ipAssociationAnalysis function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import OpenAI from 'openai';
 
-const IpAssociationAnalysisInputSchema = z.object({
-  ipAddress: z.string().describe('The IP address to analyze.'),
-});
-export type IpAssociationAnalysisInput = z.infer<typeof IpAssociationAnalysisInputSchema>;
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const IpAssociationAnalysisOutputSchema = z.object({
-  domain: z.string().describe('The associated domain name, if any.'),
-  geolocation: z.string().describe('The geographical location of the IP address.'),
-  networkTopology: z.string().describe('Description of the network topology associated with the IP address.'),
-  services: z.string().describe('A summary of the services associated with the IP address.'),
-});
-export type IpAssociationAnalysisOutput = z.infer<typeof IpAssociationAnalysisOutputSchema>;
-
-export async function ipAssociationAnalysis(input: IpAssociationAnalysisInput): Promise<IpAssociationAnalysisOutput> {
-  // return ipAssociationAnalysisFlow(input);
-  return {
-    domain: "test.com",
-    geolocation: "New York, USA",
-    networkTopology: "This is a test network topology",
-    services: "This is a test services",
-  };
+export async function ipAssociationAnalysis(input: { ip: string }) {
+  const prompt = `请分析此 IP 的可能关联信息: ${input.ip}`;
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-3.5-turbo',
+    messages: [{ role: 'user', content: prompt }],
+  });
+  return completion.choices[0].message.content;
 }
-
-const prompt = ai.definePrompt({
-  name: 'ipAssociationAnalysisPrompt',
-  input: {schema: IpAssociationAnalysisInputSchema},
-  output: {schema: IpAssociationAnalysisOutputSchema},
-  prompt: `You are an expert network analyst. Analyze the provided IP address and determine its associated domain, geographical location, network topology, and services.
-
-IP Address: {{{ipAddress}}}
-
-Provide the output in JSON format adhering to the schema descriptions.`, 
-});
-
-const ipAssociationAnalysisFlow = ai.defineFlow(
-  {
-    name: 'ipAssociationAnalysisFlow',
-    inputSchema: IpAssociationAnalysisInputSchema,
-    outputSchema: IpAssociationAnalysisOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
-  }
-);

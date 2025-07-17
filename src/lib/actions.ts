@@ -247,8 +247,8 @@ export async function scanAndAnalyzeAction(
 
       const [analysisResult, businessValueResult, associationResult] = await Promise.all([
         analyzeWebsiteContent({ url: displayUrl, content: content }),
-        determineBusinessValue({ websiteUrl: displayUrl, websiteContent: content }),
-        ipAssociationAnalysis({ ipAddress: ip }),
+        determineBusinessValue({ url: displayUrl, description: content }),
+        ipAssociationAnalysis({ ip: ip || displayUrl }),
       ]);
 
       // 更新 asset 的分析信息

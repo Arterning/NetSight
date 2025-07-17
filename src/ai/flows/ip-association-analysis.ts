@@ -11,10 +11,13 @@
 
 import OpenAI from 'openai';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ 
+  baseURL: process.env.OPENAI_BASE_URL,
+  apiKey: process.env.OPENAI_API_KEY }
+);
 
 export async function ipAssociationAnalysis(input: { ip: string }) {
-  const prompt = `请分析此 IP 的可能关联信息: ${input.ip}`;
+  const prompt = `请分析此 IP 或者域名的的可能关联信息: ${input.ip}`;
   const completion = await openai.chat.completions.create({
     model: 'gpt-3.5-turbo',
     messages: [{ role: 'user', content: prompt }],

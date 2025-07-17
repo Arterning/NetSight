@@ -18,8 +18,11 @@ const openai = new OpenAI({
 export async function analyzeWebsiteContent(input: { url: string, content: string }) {
   const prompt = `请分析这个网站的内容: ${input.content}`;
   const completion = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
-    messages: [{ role: 'user', content: prompt }],
+    model: 'deepseek-chat',
+    messages: [
+      { role: "system", content: "You are a helpful assistant." },
+      { role: 'user', content: prompt }
+    ],
   });
   return completion.choices[0].message.content;
 }

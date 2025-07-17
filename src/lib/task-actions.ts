@@ -5,6 +5,7 @@ import { scanAndAnalyzeAction } from '@/lib/actions';
 
 // Types for scheduled task creation
 export type ScheduledTaskValues = {
+  domain?: string;
   taskName: string;
   description?: string;
   ipRange?: string;

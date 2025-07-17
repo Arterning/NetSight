@@ -19,7 +19,7 @@ const openai = new OpenAI({
 export async function ipAssociationAnalysis(input: { ip: string }) {
   const prompt = `请分析此 IP 或者域名的的可能关联信息: ${input.ip}`;
   const completion = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
+    model: 'deepseek-chat',
     messages: [{ role: 'user', content: prompt }],
   });
   return completion.choices[0].message.content;

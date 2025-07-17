@@ -6,6 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { Globe, FileText, Server, MapPin, Briefcase, Network } from 'lucide-react';
 import { WebpageViewer } from './_components/webpage-viewer';
 import { SitemapDownloader } from './_components/sitemap-downloader';
+import ReactMarkdown from 'react-markdown';
 
 type AssetDetailPageProps = {
   params: {
@@ -44,7 +45,11 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
             <CardContent className="space-y-6">
               <section>
                 <h3 className="text-lg font-semibold flex items-center gap-2 mb-3"><FileText className="w-5 h-5" /> Summary</h3>
-                <p className="text-muted-foreground">{asset.summary || 'No summary available.'}</p>
+                <div className="prose prose-sm max-w-none text-muted-foreground">
+                  <ReactMarkdown>
+                    {asset.summary || 'No summary available.'}
+                  </ReactMarkdown>
+                </div>
               </section>
               <Separator />
               <section>

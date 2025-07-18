@@ -19,6 +19,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import {
@@ -48,6 +49,7 @@ const formSchema = z.object({
   scanRate: z.string(),
   isScheduled: z.boolean(),
   scheduleType: z.string().optional(),
+  customCrawlDepth: z.number().optional(),
 }).refine((data) => {
   if (data.url) {
     return z.string().url({ message: "请输入有效的URL。" }).safeParse(data.url).success && (data.url.startsWith('http://') || data.url.startsWith('https://'));
@@ -81,8 +83,11 @@ export default function ScannerPage() {
       crawlDepth: 'full',
       extractImages: true,
       valueKeywords: ['政府', '国家', '金融监管'],
+      customCrawlDepth: 2,
     },
   });
+
+  const { register, watch } = form;
 
   const [keywords, setKeywords] = useState<string[]>(form.getValues('valueKeywords') || []);
   const [keywordInput, setKeywordInput] = useState('');
@@ -229,6 +234,22 @@ export default function ScannerPage() {
                     </FormItem>
                   )}
                 />
+                {watch('crawlDepth') === 'level2' && (
+                  <FormItem>
+                    <FormLabel>自定义爬取深度</FormLabel>
+                    <FormControl>
+                      <input
+                        type="number"
+                        min={2}
+                        defaultValue={2}
+                        {...register('customCrawlDepth', { valueAsNumber: true, min: 2 })}
+                        className="input input-bordered w-full"
+                        disabled={isPending}
+                      />
+                    </FormControl>
+                    <FormDescription>最小为2，表示爬取目标页面及其直接和间接链接。</FormDescription>
+                  </FormItem>
+                )}
 
                 <FormField
                   control={form.control}

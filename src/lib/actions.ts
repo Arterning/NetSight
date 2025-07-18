@@ -20,6 +20,7 @@ const formSchema = z.object({
   scanRate: z.string(),
   isScheduled: z.boolean(),
   scheduleType: z.string().optional(),
+  customCrawlDepth: z.number().optional(),
 }).refine((data) => {
   if (data.url) {
     const urlValidation = z.string().url({ message: "请输入有效的URL。" }).safeParse(data.url);
@@ -219,7 +220,16 @@ export async function scanAndAnalyzeAction(
 
 
       // 爬取全站并生成 sitemap
-      const crawlDepth = parseInt(values.crawlDepth || '3', 10);
+      let crawlDepth: number;
+      if (values.crawlDepth === 'full') {
+        crawlDepth = 99;
+      } else if (values.crawlDepth === 'level1') {
+        crawlDepth = 1;
+      } else if (values.crawlDepth === 'level2') {
+        crawlDepth = parseInt((values.customCrawlDepth ?? '2').toString(), 10);
+      } else {
+        crawlDepth = 3; // fallback
+      }
       const crawlResult = await crawlWebsite(displayUrl, assetId, crawlDepth);
       crawledUrls = crawlResult.urls;
       sitemapXml = crawlResult.sitemapXml;

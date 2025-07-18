@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { analyzeWebsiteContent } from '@/ai/flows/analyze-website-content';
 import { determineBusinessValue } from '@/ai/flows/determine-business-value';
 import { ipAssociationAnalysis } from '@/ai/flows/ip-association-analysis';
+import dns from 'dns/promises';
 import { crawlPage } from './crawl';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
@@ -48,6 +49,21 @@ const assetSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 type AssetFormValues = z.infer<typeof assetSchema>;
+
+async function getGeolocationFromUrl(url: string): Promise<string> {
+  try {
+    const hostname = new URL(url).hostname;
+    const { address } = await dns.lookup(hostname);
+    const res = await fetch(`http://ip-api.com/json/${address}?lang=zh-CN`);
+    const data = await res.json();
+    if (data.status === 'success') {
+      return `${data.country || ''}${data.regionName ? ', ' + data.regionName : ''}${data.city ? ', ' + data.city : ''}`;
+    }
+    return '未知';
+  } catch (e) {
+    return '未知';
+  }
+}
 
 // Simulate finding active IPs for IP range scan
 const getActiveIPsFromRange = (ipRange: string) => {
@@ -298,13 +314,15 @@ export async function scanAndAnalyzeAction(
             associationResult,
           });
     
+          const geolocation = await getGeolocationFromUrl(displayUrl);
+
           // 更新 asset 的分析信息
           await prisma.asset.update({
             where: { id: assetId },
             data: {
               valuePropositionScore: 8,
               summary: analysisResult,
-              geolocation: "China",
+              geolocation,
               services: businessValueResult,
               networkTopology: associationResult,
             },

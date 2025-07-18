@@ -68,7 +68,7 @@ export type ScanAndAnalyzeResult = {
 };
 
 
-const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number = 3) => {
+const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number = 3, taskExecutionId: string) => {
   const visited = new Set<string>();
   const queue: { url: string; depth: number }[] = [{ url: startUrl, depth: 0 }];
   const urls: string[] = [];
@@ -82,6 +82,10 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
     let htmlContent = '';
     let title = '';
     try {
+      await prisma.taskExecution.update({
+        where: { id: taskExecutionId },
+        data: { stage: `正在扫描${url}` },
+      });
       const response = await crawlPage(url);
       htmlContent = response.text
       title = response.title;
@@ -168,7 +172,7 @@ export async function scanAndAnalyzeAction(
   const validation = formSchema.safeParse(values);
   if (!validation.success) {
     const error = validation.error.errors[0];
-    return { data: null, error: `${error.path.join('.')}: ${error.message}` };
+    return { taskExecutionId: null, error: `${error.path.join('.')}: ${error.message}` };
   }
 
   try {
@@ -243,13 +247,15 @@ export async function scanAndAnalyzeAction(
           if (values.crawlDepth === 'full') {
             crawlDepth = 99;
           } else if (values.crawlDepth === 'level1') {
-            crawlDepth = 1;
-          } else if (values.crawlDepth === 'level2') {
-            crawlDepth = parseInt((values.customCrawlDepth ?? '2').toString(), 10);
+            crawlDepth = 0; // level1 means only the homepage
+          }else if (values.crawlDepth === 'level2') {
+            crawlDepth = 1; // level2 means homepage + one level deep
+          } else if (values.crawlDepth === 'level3') {
+            crawlDepth = parseInt((values.customCrawlDepth ?? '2').toString(), 10); // custom depth
           } else {
             crawlDepth = 3; // fallback
           }
-          const crawlResult = await crawlWebsite(displayUrl, assetId, crawlDepth);
+          const crawlResult = await crawlWebsite(displayUrl, assetId, crawlDepth, taskExecutionId);
           crawledUrls = crawlResult.urls;
           sitemapXml = crawlResult.sitemapXml;
           homepageContent = crawlResult.homepageContent;
@@ -264,7 +270,7 @@ export async function scanAndAnalyzeAction(
           }
     
           // 分析首页内容
-          content = homepageContent
+          content = homepageTitle + homepageContent
             ? homepageContent.replace(/<style[^>]*>.*?<\/style>/g, ' ')
                              .replace(/<script[^>]*>.*?<\/script>/g, ' ')
                              .replace(/<[^>]*>/g, ' ')

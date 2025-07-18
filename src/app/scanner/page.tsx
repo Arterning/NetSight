@@ -261,13 +261,14 @@ export default function ScannerPage() {
                         <SelectContent>
                           <SelectItem value="level1">仅目标页面</SelectItem>
                           <SelectItem value="level2">目标页面及其链接</SelectItem>
+                          <SelectItem value="level3">自定义爬取深度</SelectItem>
                           <SelectItem value="full">全站</SelectItem>
                         </SelectContent>
                       </Select>
                     </FormItem>
                   )}
                 />
-                {watch('crawlDepth') === 'level2' && (
+                {watch('crawlDepth') === 'level3' && (
                   <FormItem>
                     <FormLabel>自定义爬取深度</FormLabel>
                     <FormControl>

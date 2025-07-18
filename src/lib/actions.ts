@@ -280,7 +280,7 @@ export async function scanAndAnalyzeAction(
     
           const [analysisResult, businessValueResult, associationResult] = await Promise.all([
             analyzeWebsiteContent({ url: displayUrl, content: content }),
-            determineBusinessValue({ url: displayUrl, description: content }),
+            determineBusinessValue({ url: displayUrl, content: content, valueKeywords: values.valueKeywords }),
             ipAssociationAnalysis({ ip: ip || displayUrl }),
           ]);
     

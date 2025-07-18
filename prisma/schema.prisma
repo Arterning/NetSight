@@ -78,6 +78,7 @@ model TaskExecution {
   startTime       DateTime? // 开始时间
   endTime         DateTime? // 结束时间
   duration        Int?      // 执行时长（秒）
+  stage           String?   // 当前执行阶段
   errorMessage    String?   // 错误信息
   assetsFound     Int       @default(0) // 发现的资产数量
   createdAt       DateTime  @default(now())

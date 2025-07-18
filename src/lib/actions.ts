@@ -122,6 +122,46 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
   return { urls, sitemapXml, homepageTitle, homepageContent };
 };
 
+
+export async function createTaskExecution(values: FormValues) {
+   // 无论是定时任务还是一次性任务，都需要先创建任务
+   let scheduledTaskId = null;
+   if (values.isScheduled && values.scheduleType) {
+     console.log('Creating scheduled task...');
+   }
+
+   const task = await createScheduledTask({
+     taskName: values.taskName,
+     description: values.description,
+     domain: values.url ? new URL(values.url).hostname : '',
+     ipRange: values.ipRange,
+     scanRate: values.scanRate,
+     scheduleType: values.scheduleType || 'once',
+   });
+   if (task.error) {
+     return { data: null, error: task.error };
+   }
+   scheduledTaskId = task.data?.id || null;
+
+
+   const taskName = values.taskName || `Scan_${new Date().toISOString()}`;
+
+   // 创建任务执行记录
+   let taskExecutionId: string | null = null;
+   const execution = await prisma.taskExecution.create({
+     data: {
+       scheduledTaskId,
+       status: 'running',
+       startTime: new Date(),
+       assetsFound: 0,
+     }
+   });
+   taskExecutionId = execution.id;
+
+   return { taskExecutionId, scheduledTaskId, taskName };
+}
+
+
 export async function scanAndAnalyzeAction(
   values: FormValues
 ): Promise<{ data: ScanAndAnalyzeResult[] | null; error: string | null }> {
@@ -132,24 +172,7 @@ export async function scanAndAnalyzeAction(
   }
 
   try {
-    // 无论是定时任务还是一次性任务，都需要先创建任务
-    let scheduledTaskId = null;
-    if (values.isScheduled && values.scheduleType) {
-      console.log('Creating scheduled task...');
-    }
-
-    const task = await createScheduledTask({
-      taskName: values.taskName,
-      description: values.description,
-      domain: values.url ? new URL(values.url).hostname : '',
-      ipRange: values.ipRange,
-      scanRate: values.scanRate,
-      scheduleType: values.scheduleType || 'once',
-    });
-    if (task.error) {
-      return { data: null, error: task.error };
-    }
-    scheduledTaskId = task.data?.id || null;
+    const { taskExecutionId, scheduledTaskId, taskName } = await createTaskExecution(values);
 
     let analysisTargets: {type: 'ip' | 'url', value: string}[] = [];
 
@@ -159,20 +182,6 @@ export async function scanAndAnalyzeAction(
       const activeIPs = getActiveIPsFromRange(values.ipRange);
       analysisTargets = activeIPs.map(ip => ({ type: 'ip', value: ip }));
     }
-
-    const taskName = values.taskName || `Scan_${new Date().toISOString()}`;
-
-    // 创建任务执行记录
-    let taskExecutionId: string | null = null;
-    const execution = await prisma.taskExecution.create({
-      data: {
-        scheduledTaskId,
-        status: 'running',
-        startTime: new Date(),
-        assetsFound: 0,
-      }
-    });
-    taskExecutionId = execution.id;
 
 
     const analysisPromises = analysisTargets.map(async (target) => {
@@ -218,6 +227,13 @@ export async function scanAndAnalyzeAction(
       });
       assetId = upsertedAsset.id;
 
+      // 1. 爬取前，更新 stage
+      if (taskExecutionId) {
+        await prisma.taskExecution.update({
+          where: { id: taskExecutionId },
+          data: { stage: `正在扫描${displayUrl}` },
+        });
+      }
 
       // 爬取全站并生成 sitemap
       let crawlDepth: number;
@@ -236,6 +252,14 @@ export async function scanAndAnalyzeAction(
       homepageContent = crawlResult.homepageContent;
       homepageTitle = crawlResult.homepageTitle;
 
+      // 2. 爬取后AI分析前，更新 stage
+      if (taskExecutionId) {
+        await prisma.taskExecution.update({
+          where: { id: taskExecutionId },
+          data: { stage: '正在AI分析网站内容' },
+        });
+      }
+
       // 分析首页内容
       content = homepageContent
         ? homepageContent.replace(/<style[^>]*>.*?<\/style>/g, ' ')
@@ -250,6 +274,14 @@ export async function scanAndAnalyzeAction(
         determineBusinessValue({ url: displayUrl, description: content }),
         ipAssociationAnalysis({ ip: ip || displayUrl }),
       ]);
+
+      // 3. 分析结束后，更新 stage
+      if (taskExecutionId) {
+        await prisma.taskExecution.update({
+          where: { id: taskExecutionId },
+          data: { stage: '分析结束' },
+        });
+      }
 
       console.log(`Analysis for ${displayUrl} completed:`, {
         analysisResult,

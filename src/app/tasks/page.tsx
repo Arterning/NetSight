@@ -75,15 +75,19 @@ export default function TasksPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<ScheduledTask | null>(null);
   const [rerunLoadingId, setRerunLoadingId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [total, setTotal] = useState(0);
   const { toast } = useToast();
 
-  const fetchTasks = useCallback(async () => {
+  const fetchTasks = useCallback(async (pageNum = page) => {
     setLoading(true);
     try {
-      const response = await fetch('/api/tasks');
+      const response = await fetch(`/api/tasks?page=${pageNum}&limit=${limit}`);
       if (response.ok) {
         const data = await response.json();
-        setTasks(data);
+        setTasks(data.tasks);
+        setTotal(data.total);
       } else {
         throw new Error('Failed to fetch tasks');
       }
@@ -96,11 +100,11 @@ export default function TasksPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, page, limit]);
 
   useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
+    fetchTasks(page);
+  }, [fetchTasks, page]);
 
   const toggleTaskStatus = async (taskId: string, isActive: boolean) => {
     try {
@@ -363,6 +367,28 @@ export default function TasksPage() {
           </div>
         )}
       </div>
+
+      {tasks.length > 0 && (
+        <div className="flex justify-center items-center gap-4 mt-8">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+          >
+            上一页
+          </Button>
+          <span>第 {page} / {Math.max(1, Math.ceil(total / limit))} 页</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => (p < Math.ceil(total / limit) ? p + 1 : p))}
+            disabled={page >= Math.ceil(total / limit)}
+          >
+            下一页
+          </Button>
+        </div>
+      )}
 
       <AlertDialog open={!!taskToDelete} onOpenChange={(open) => !open && setTaskToDelete(null)}>
         <AlertDialogContent>

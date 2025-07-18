@@ -1,23 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const tasks = await prisma.scheduledTask.findMany({
-      include: {
-        executions: {
-          orderBy: {
-            createdAt: 'desc'
-          },
-          take: 5
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '10', 10);
+    const skip = (page - 1) * limit;
 
-    return NextResponse.json(tasks);
+    // 只查找定时任务（排除 scheduleType === 'once'）
+    const [tasks, total] = await Promise.all([
+      prisma.scheduledTask.findMany({
+        where: { scheduleType: { not: 'once' } },
+        include: {
+          executions: {
+            orderBy: { createdAt: 'desc' },
+            take: 5
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit
+      }),
+      prisma.scheduledTask.count({ where: { scheduleType: { not: 'once' } } })
+    ]);
+
+    return NextResponse.json({ tasks, total });
   } catch (error) {
     console.error('Error fetching tasks:', error);
     return NextResponse.json(

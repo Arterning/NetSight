@@ -39,10 +39,10 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 
 const formSchema = z.object({
-  taskName: z.string().min(1, '任务名称是必需的。'),
+  taskName: z.string().optional(),
   description: z.string().optional(),
   ipRange: z.string().optional(),
-  url: z.string().optional(),
+  url: z.string().min(1, 'URL是必需的。').url('请输入有效的URL。'),
   crawlDepth: z.string().default('full'),
   extractImages: z.boolean().default(true),
   valueKeywords: z.array(z.string()).default(['政府', '国家', '金融监管']),
@@ -50,17 +50,6 @@ const formSchema = z.object({
   isScheduled: z.boolean(),
   scheduleType: z.string().optional(),
   customCrawlDepth: z.number().optional(),
-}).refine((data) => {
-  if (data.url) {
-    return z.string().url({ message: "请输入有效的URL。" }).safeParse(data.url).success && (data.url.startsWith('http://') || data.url.startsWith('https://'));
-  }
-  return true;
-}, {
-  message: "URL必须是以 http:// 或 https:// 开头的有效链接。",
-  path: ["url"],
-}).refine((data) => data.ipRange || data.url, {
-  message: "IP范围或URL至少需要填写一个。",
-  path: ["ipRange"],
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -193,7 +182,7 @@ export default function ScannerPage() {
                   name="url"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>URL</FormLabel>
+                      <FormLabel>URL <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
                         <Input placeholder="例如：https://example.com" {...field} />
                       </FormControl>
@@ -221,7 +210,7 @@ export default function ScannerPage() {
                   name="taskName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>任务名称</FormLabel>
+                      <FormLabel>任务名称（可选）</FormLabel>
                       <FormControl>
                         <Input placeholder="例如：办公室网络扫描" {...field} />
                       </FormControl>

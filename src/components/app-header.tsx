@@ -15,11 +15,11 @@ import {
 } from 'lucide-react';
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: Home },
+  // { name: 'Dashboard', href: '/', icon: Home },
   { name: '扫描', href: '/scanner', icon: Activity },
-  { name: '扫描历史', href: '/history', icon: History },
-  { name: '任务管理', href: '/tasks', icon: Calendar },
-  { name: '资产管理', href: '/assets', icon: Server },
+  { name: '历史', href: '/history', icon: History },
+  { name: '资产', href: '/assets', icon: Server },
+  { name: '定时任务', href: '/tasks', icon: Calendar },
 ];
 
 export function AppHeader() {

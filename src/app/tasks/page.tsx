@@ -212,7 +212,7 @@ export default function TasksPage() {
               查看和管理您的网络扫描定时任务
             </p>
           </div>
-          <Link href="/">
+          <Link href="/scanner">
             <Button>创建新任务</Button>
           </Link>
         </div>

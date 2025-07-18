@@ -5,6 +5,7 @@ import { TaskExecution, ScheduledTask } from '@prisma/client';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import Link from 'next/link';
 
 // Extend TaskExecution to include the nested ScheduledTask object
 export type ScanHistory = TaskExecution & {
@@ -29,6 +30,15 @@ export const columns: ColumnDef<ScanHistory>[] = [
   {
     accessorKey: 'scheduledTask.name',
     header: '任务名称',
+    cell: ({ row }) => {
+      const name = row.original.scheduledTask?.name;
+      const execId = row.original.id;
+      return execId ? (
+        <Link href={`/task-execution/${execId}`} className="text-blue-600 hover:underline">{name}</Link>
+      ) : (
+        <span>{name}</span>
+      );
+    },
   },
   {
     accessorKey: 'status',

@@ -120,7 +120,7 @@ export default function ScannerPage() {
           description: response.error,
         });
       } else {
-        setResults(response.data || []);
+        setResults([]);
         if (values.isScheduled) {
           toast({
             title: '定时任务已创建',

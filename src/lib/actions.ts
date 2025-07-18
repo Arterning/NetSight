@@ -164,7 +164,7 @@ export async function createTaskExecution(values: FormValues) {
 
 export async function scanAndAnalyzeAction(
   values: FormValues
-): Promise<{ data: ScanAndAnalyzeResult[] | null; error: string | null }> {
+): Promise<{ taskExecutionId: string | null; error: string | null }> {
   const validation = formSchema.safeParse(values);
   if (!validation.success) {
     const error = validation.error.errors[0];
@@ -184,169 +184,180 @@ export async function scanAndAnalyzeAction(
     }
 
 
-    const analysisPromises = analysisTargets.map(async (target) => {
-      let content: string;
-      let ip: string;
-      let displayUrl: string;
-      let htmlContent = '';
-      let crawledUrls: string[] = [];
-      let sitemapXml = '';
-
-      if (target.type === 'url') {
-        displayUrl = target.value;
-        ip = new URL(displayUrl).hostname; // Using hostname as a stand-in for IP
-      } else { // ip
-        ip = target.value;
-        displayUrl = `http://${ip}`;
-      }
-
-      // 递归爬取整个网站
-      let assetId: string | null = null;
-      let homepageContent = '';
-      let homepageTitle = '';
-      
-
-      // 先 upsert asset，获得 assetId
-      const assetData = {
-        ip: ip,
-        domain: target.type === 'url' ? new URL(target.value).hostname : '',
-        status: 'Active',
-        openPorts: '80, 443', // Mock data
-        valuePropositionScore: 0,
-        summary: '',
-        geolocation: '',
-        services: '',
-        networkTopology: '',
-        taskName: taskName,
-        taskExecutionId: taskExecutionId,
-      };
-      const upsertedAsset = await prisma.asset.upsert({
-        where: { ip: ip },
-        update: assetData,
-        create: assetData,
-      });
-      assetId = upsertedAsset.id;
-
-      // 1. 爬取前，更新 stage
-      if (taskExecutionId) {
-        await prisma.taskExecution.update({
-          where: { id: taskExecutionId },
-          data: { stage: `正在扫描${displayUrl}` },
+    // 2. 启动异步扫描分析
+    (async () => {
+      try {
+        const analysisPromises = analysisTargets.map(async (target) => {
+          let content: string;
+          let ip: string;
+          let displayUrl: string;
+          let htmlContent = '';
+          let crawledUrls: string[] = [];
+          let sitemapXml = '';
+    
+          if (target.type === 'url') {
+            displayUrl = target.value;
+            ip = new URL(displayUrl).hostname; // Using hostname as a stand-in for IP
+          } else { // ip
+            ip = target.value;
+            displayUrl = `http://${ip}`;
+          }
+    
+          // 递归爬取整个网站
+          let assetId: string | null = null;
+          let homepageContent = '';
+          let homepageTitle = '';
+          
+    
+          // 先 upsert asset，获得 assetId
+          const assetData = {
+            ip: ip,
+            domain: target.type === 'url' ? new URL(target.value).hostname : '',
+            status: 'Active',
+            openPorts: '80, 443', // Mock data
+            valuePropositionScore: 0,
+            summary: '',
+            geolocation: '',
+            services: '',
+            networkTopology: '',
+            taskName: taskName,
+            taskExecutionId: taskExecutionId,
+          };
+          const upsertedAsset = await prisma.asset.upsert({
+            where: { ip: ip },
+            update: assetData,
+            create: assetData,
+          });
+          assetId = upsertedAsset.id;
+    
+          // 1. 爬取前，更新 stage
+          if (taskExecutionId) {
+            await prisma.taskExecution.update({
+              where: { id: taskExecutionId },
+              data: { stage: `正在扫描${displayUrl}` },
+            });
+          }
+    
+          // 爬取全站并生成 sitemap
+          let crawlDepth: number;
+          if (values.crawlDepth === 'full') {
+            crawlDepth = 99;
+          } else if (values.crawlDepth === 'level1') {
+            crawlDepth = 1;
+          } else if (values.crawlDepth === 'level2') {
+            crawlDepth = parseInt((values.customCrawlDepth ?? '2').toString(), 10);
+          } else {
+            crawlDepth = 3; // fallback
+          }
+          const crawlResult = await crawlWebsite(displayUrl, assetId, crawlDepth);
+          crawledUrls = crawlResult.urls;
+          sitemapXml = crawlResult.sitemapXml;
+          homepageContent = crawlResult.homepageContent;
+          homepageTitle = crawlResult.homepageTitle;
+    
+          // 2. 爬取后AI分析前，更新 stage
+          if (taskExecutionId) {
+            await prisma.taskExecution.update({
+              where: { id: taskExecutionId },
+              data: { stage: '正在AI分析网站内容' },
+            });
+          }
+    
+          // 分析首页内容
+          content = homepageContent
+            ? homepageContent.replace(/<style[^>]*>.*?<\/style>/g, ' ')
+                             .replace(/<script[^>]*>.*?<\/script>/g, ' ')
+                             .replace(/<[^>]*>/g, ' ')
+                             .replace(/\s+/g, ' ')
+                             .trim()
+            : '';
+    
+          const [analysisResult, businessValueResult, associationResult] = await Promise.all([
+            analyzeWebsiteContent({ url: displayUrl, content: content }),
+            determineBusinessValue({ url: displayUrl, description: content }),
+            ipAssociationAnalysis({ ip: ip || displayUrl }),
+          ]);
+    
+          // 3. 分析结束后，更新 stage
+          if (taskExecutionId) {
+            await prisma.taskExecution.update({
+              where: { id: taskExecutionId },
+              data: { stage: '分析结束' },
+            });
+          }
+    
+          console.log(`Analysis for ${displayUrl} completed:`, {
+            analysisResult,
+            businessValueResult,
+            associationResult,
+          });
+    
+          // 更新 asset 的分析信息
+          await prisma.asset.update({
+            where: { id: assetId },
+            data: {
+              valuePropositionScore: 8,
+              summary: analysisResult,
+              geolocation: "China",
+              services: businessValueResult,
+              networkTopology: associationResult,
+            },
+          });
+    
+          return {
+            ip,
+            analysis: analysisResult,
+            businessValue: businessValueResult,
+            association: associationResult,
+            id: assetId,
+            sitemapXml,
+            crawledUrls,
+          };
         });
-      }
-
-      // 爬取全站并生成 sitemap
-      let crawlDepth: number;
-      if (values.crawlDepth === 'full') {
-        crawlDepth = 99;
-      } else if (values.crawlDepth === 'level1') {
-        crawlDepth = 1;
-      } else if (values.crawlDepth === 'level2') {
-        crawlDepth = parseInt((values.customCrawlDepth ?? '2').toString(), 10);
-      } else {
-        crawlDepth = 3; // fallback
-      }
-      const crawlResult = await crawlWebsite(displayUrl, assetId, crawlDepth);
-      crawledUrls = crawlResult.urls;
-      sitemapXml = crawlResult.sitemapXml;
-      homepageContent = crawlResult.homepageContent;
-      homepageTitle = crawlResult.homepageTitle;
-
-      // 2. 爬取后AI分析前，更新 stage
-      if (taskExecutionId) {
-        await prisma.taskExecution.update({
-          where: { id: taskExecutionId },
-          data: { stage: '正在AI分析网站内容' },
-        });
-      }
-
-      // 分析首页内容
-      content = homepageContent
-        ? homepageContent.replace(/<style[^>]*>.*?<\/style>/g, ' ')
-                         .replace(/<script[^>]*>.*?<\/script>/g, ' ')
-                         .replace(/<[^>]*>/g, ' ')
-                         .replace(/\s+/g, ' ')
-                         .trim()
-        : '';
-
-      const [analysisResult, businessValueResult, associationResult] = await Promise.all([
-        analyzeWebsiteContent({ url: displayUrl, content: content }),
-        determineBusinessValue({ url: displayUrl, description: content }),
-        ipAssociationAnalysis({ ip: ip || displayUrl }),
-      ]);
-
-      // 3. 分析结束后，更新 stage
-      if (taskExecutionId) {
-        await prisma.taskExecution.update({
-          where: { id: taskExecutionId },
-          data: { stage: '分析结束' },
-        });
-      }
-
-      console.log(`Analysis for ${displayUrl} completed:`, {
-        analysisResult,
-        businessValueResult,
-        associationResult,
-      });
-
-      // 更新 asset 的分析信息
-      await prisma.asset.update({
-        where: { id: assetId },
-        data: {
-          valuePropositionScore: 8,
-          summary: analysisResult,
-          geolocation: "China",
-          services: businessValueResult,
-          networkTopology: associationResult,
-        },
-      });
-
-      return {
-        ip,
-        analysis: analysisResult,
-        businessValue: businessValueResult,
-        association: associationResult,
-        id: assetId,
-        sitemapXml,
-        crawledUrls,
-      };
-    });
-
-    const results = await Promise.all(analysisPromises);
-
-    // 更新任务执行记录
-    if (taskExecutionId) {
-      const endTime = new Date();
-      const startTime = await prisma.taskExecution.findUnique({
-        where: { id: taskExecutionId },
-        select: { startTime: true }
-      });
-
-      const duration = startTime?.startTime 
-        ? Math.floor((endTime.getTime() - startTime.startTime.getTime()) / 1000)
-        : null;
-
-      await prisma.taskExecution.update({
-        where: { id: taskExecutionId },
-        data: {
-          status: 'completed',
-          endTime,
-          duration,
-          assetsFound: results.length,
+    
+        const results = await Promise.all(analysisPromises);
+    
+        // 更新任务执行记录
+        if (taskExecutionId) {
+          const endTime = new Date();
+          const startTime = await prisma.taskExecution.findUnique({
+            where: { id: taskExecutionId },
+            select: { startTime: true }
+          });
+    
+          const duration = startTime?.startTime 
+            ? Math.floor((endTime.getTime() - startTime.startTime.getTime()) / 1000)
+            : null;
+    
+          await prisma.taskExecution.update({
+            where: { id: taskExecutionId },
+            data: {
+              status: 'completed',
+              endTime,
+              duration,
+              assetsFound: results.length,
+            }
+          });
+    
+          // 更新定时任务的下次执行时间
+          if (scheduledTaskId && values.isScheduled && values.scheduleType) {
+            await updateNextRunTime(scheduledTaskId, values.scheduleType!);
+          }
         }
-      });
-
-      // 更新定时任务的下次执行时间
-      if (scheduledTaskId) {
-        await updateNextRunTime(scheduledTaskId, values.scheduleType!);
+      } catch (e) {
+        await prisma.taskExecution.update({
+          where: { id: taskExecutionId },
+          data: { status: 'failed', stage: '任务失败' }
+        });
       }
-    }
+    })();
+
 
     revalidatePath('/');
     revalidatePath('/tasks');
-    return { data: results, error: null };
+    return { taskExecutionId, error: null };
   } catch (error) {
     console.error('Error during scan and analysis:', error);
-    return { data: null, error: 'Failed to complete analysis. Please try again.' };
+    return { taskExecutionId: null, error: 'Failed to complete analysis. Please try again.' };
   }
 }

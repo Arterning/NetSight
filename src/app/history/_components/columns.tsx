@@ -4,11 +4,26 @@ import { ColumnDef } from '@tanstack/react-table';
 import { TaskExecution, ScheduledTask } from '@prisma/client';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
 // Extend TaskExecution to include the nested ScheduledTask object
 export type ScanHistory = TaskExecution & {
   scheduledTask: ScheduledTask;
 };
+
+// 状态图标渲染函数
+function StatusIcon({ status }: { status: string }) {
+  switch (status) {
+    case 'running':
+      return <Loader2 className="h-5 w-5 animate-spin text-blue-500" />;
+    case 'completed':
+      return <CheckCircle className="h-5 w-5 text-green-500" />;
+    case 'failed':
+      return <XCircle className="h-5 w-5 text-red-500" />;
+    default:
+      return <AlertCircle className="h-5 w-5 text-gray-400" />;
+  }
+}
 
 export const columns: ColumnDef<ScanHistory>[] = [
   {
@@ -20,11 +35,7 @@ export const columns: ColumnDef<ScanHistory>[] = [
     header: '状态',
     cell: ({ row }) => {
       const status = row.getValue('status') as string;
-      let variant: 'secondary' | 'outline' | 'destructive' = 'secondary';
-      if (status === 'completed') variant = 'secondary';
-      if (status === 'running') variant = 'outline';
-      if (status === 'failed') variant = 'destructive';
-      return <Badge variant={variant}>{status}</Badge>;
+      return <StatusIcon status={status} />;
     },
   },
   {

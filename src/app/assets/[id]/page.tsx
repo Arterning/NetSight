@@ -45,7 +45,7 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
             <CardContent className="space-y-6">
               <section>
                 <h3 className="text-lg font-semibold flex items-center gap-2 mb-3"><FileText className="w-5 h-5" /> Summary</h3>
-                <div className="prose prose-sm max-w-none text-muted-foreground">
+                <div className="prose prose-sm max-w-none">
                   <ReactMarkdown>
                     {asset.summary || 'No summary available.'}
                   </ReactMarkdown>
@@ -54,6 +54,9 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
               <Separator />
               <section>
                 <h3 className="text-lg font-semibold flex items-center gap-2 mb-3"><Briefcase className="w-5 h-5" /> Business Value</h3>
+                  <ReactMarkdown>
+                      {asset.services || 'No services information available.'}
+                  </ReactMarkdown>
                 <p className="text-muted-foreground">Value Score: <strong>{asset.valuePropositionScore}%</strong></p>
               </section>
               <Separator />
@@ -61,7 +64,6 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
                 <h3 className="text-lg font-semibold flex items-center gap-2 mb-3"><Network className="w-5 h-5" /> Network Info</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                     <p className="flex items-center gap-2"><MapPin className="w-4 h-4 text-muted-foreground" /> <strong>Geolocation:</strong> {asset.geolocation}</p>
-                    <p className="flex items-center gap-2"><Server className="w-4 h-4 text-muted-foreground" /> <strong>Services:</strong> {asset.services}</p>
                     <p className="flex items-center gap-2"><Server className="w-4 h-4 text-muted-foreground" /> <strong>Open Ports:</strong> {asset.openPorts}</p>
                 </div>
               </section>

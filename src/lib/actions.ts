@@ -5,6 +5,7 @@ import { analyzeWebsiteContent } from '@/ai/flows/analyze-website-content';
 import { determineBusinessValue } from '@/ai/flows/determine-business-value';
 import { ipAssociationAnalysis } from '@/ai/flows/ip-association-analysis';
 import dns from 'dns/promises';
+import net from 'net';
 import { crawlPage } from './crawl';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
@@ -63,6 +64,34 @@ async function getGeolocationFromUrl(url: string): Promise<string> {
   } catch (e) {
     return '未知';
   }
+}
+
+
+async function scanOpenPorts(host: string, ports: number[], timeout = 1000): Promise<number[]> {
+  const openPorts: number[] = [];
+  const ip = (await dns.lookup(host)).address;
+
+  await Promise.all(
+    ports.map(port =>
+      new Promise<void>((resolve) => {
+        const socket = new net.Socket();
+        let isOpen = false;
+        socket.setTimeout(timeout);
+
+        socket.once('connect', () => {
+          isOpen = true;
+          openPorts.push(port);
+          socket.destroy();
+        });
+        socket.once('timeout', () => socket.destroy());
+        socket.once('error', () => socket.destroy());
+        socket.once('close', () => resolve());
+
+        socket.connect(port, ip);
+      })
+    )
+  );
+  return openPorts;
 }
 
 // Simulate finding active IPs for IP range scan
@@ -234,7 +263,7 @@ export async function scanAndAnalyzeAction(
             ip: ip,
             domain: target.type === 'url' ? new URL(target.value).hostname : '',
             status: 'Active',
-            openPorts: '80, 443', // Mock data
+            openPorts: '',
             valuePropositionScore: 0,
             summary: '',
             geolocation: '',
@@ -316,6 +345,11 @@ export async function scanAndAnalyzeAction(
     
           const geolocation = await getGeolocationFromUrl(displayUrl);
 
+          const portList = [21, 22, 80, 443, 3306, 8080, 5432, 6379];
+          const hostname = new URL(displayUrl).hostname;
+          const openPorts = await scanOpenPorts(hostname, portList);
+          const openPortsStr = openPorts.join(', ');
+
           // 更新 asset 的分析信息
           await prisma.asset.update({
             where: { id: assetId },
@@ -323,6 +357,7 @@ export async function scanAndAnalyzeAction(
               valuePropositionScore: 8,
               summary: analysisResult,
               geolocation,
+              openPorts: openPortsStr,
               services: businessValueResult,
               networkTopology: associationResult,
             },

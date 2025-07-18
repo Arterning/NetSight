@@ -193,7 +193,7 @@ export default function ScannerPage() {
                   name="url"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>URL (可选)</FormLabel>
+                      <FormLabel>URL</FormLabel>
                       <FormControl>
                         <Input placeholder="例如：https://example.com" {...field} />
                       </FormControl>
@@ -202,7 +202,7 @@ export default function ScannerPage() {
                   )}
                 />
 
-                <FormField
+                {/* <FormField
                   control={form.control}
                   name="ipRange"
                   render={({ field }) => (
@@ -214,7 +214,7 @@ export default function ScannerPage() {
                       <FormMessage />
                     </FormItem>
                   )}
-                />
+                /> */}
 
                 <FormField
                   control={form.control}

@@ -48,9 +48,20 @@ interface TaskExecution {
   assetsFound: number;
 }
 
+interface ActiveTaskExecution {
+  id: string;
+  status: string;
+  startTime?: string;
+  scheduledTask: {
+    id: string;
+    name: string;
+    scheduleType: string;
+  };
+}
+
 export default function Dashboard() {
   const [assetStats, setAssetStats] = useState<AssetStats | null>(null);
-  const [activeTasks, setActiveTasks] = useState<ScheduledTask[]>([]);
+  const [activeExecutions, setActiveExecutions] = useState<ActiveTaskExecution[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -60,9 +71,9 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const [statsResponse, tasksResponse] = await Promise.all([
+      const [statsResponse, executionsResponse] = await Promise.all([
         fetch('/api/assets/stats'),
-        fetch('/api/tasks')
+        fetch('/api/tasks/active')
       ]);
 
       if (statsResponse.ok) {
@@ -70,10 +81,9 @@ export default function Dashboard() {
         setAssetStats(stats);
       }
 
-      if (tasksResponse.ok) {
-        const tasks = await tasksResponse.json();
-        // 只显示活跃的任务
-        setActiveTasks(tasks.filter((task: ScheduledTask) => task.isActive));
+      if (executionsResponse.ok) {
+        const executions = await executionsResponse.json();
+        setActiveExecutions(executions);
       }
     } catch (error) {
       toast({
@@ -163,7 +173,7 @@ export default function Dashboard() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{activeTasks.length}</div>
+            <div className="text-2xl font-bold">{activeExecutions.length}</div>
             <p className="text-xs text-muted-foreground">
               正在运行的定时扫描任务
             </p>
@@ -236,34 +246,31 @@ export default function Dashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {activeTasks.length === 0 ? (
+            {activeExecutions.length === 0 ? (
               <div className="text-center py-8">
                 <Clock className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
                 <p className="text-sm text-muted-foreground">暂无活跃任务</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {activeTasks.slice(0, 3).map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
+                {activeExecutions.slice(0, 3).map((exec) => (
+                  <div key={exec.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex-1">
-                      <p className="text-sm font-medium">{task.name}</p>
+                      <p className="text-sm font-medium">{exec.scheduledTask?.name || '未知任务'}</p>
                       <p className="text-xs text-muted-foreground">
-                        {formatScheduleType(task.scheduleType)}
+                        {formatScheduleType(exec.scheduledTask?.scheduleType)}
+                        {exec.startTime ? ` | 开始于 ${new Date(exec.startTime).toLocaleString('zh-CN')}` : ''}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {task.executions.length > 0 && task.executions[0].status === 'running' ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                      ) : (
-                        <Play className="h-4 w-4 text-green-500" />
-                      )}
+                      <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
                     </div>
                   </div>
                 ))}
-                {activeTasks.length > 3 && (
+                {activeExecutions.length > 3 && (
                   <div className="text-center">
                     <p className="text-xs text-muted-foreground">
-                      还有 {activeTasks.length - 3} 个任务...
+                      还有 {activeExecutions.length - 3} 个任务...
                     </p>
                   </div>
                 )}

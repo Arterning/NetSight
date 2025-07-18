@@ -187,6 +187,35 @@ export default function ScannerPage() {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+
+                <FormField
+                  control={form.control}
+                  name="url"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>URL (可选)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="例如：https://example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="ipRange"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>IP范围 (可选)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="例如：192.168.1.1/24 或 10.0.0.1-50" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <FormField
                   control={form.control}
                   name="taskName"
@@ -218,33 +247,6 @@ export default function ScannerPage() {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="ipRange"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>IP范围 (可选)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="例如：192.168.1.1/24 或 10.0.0.1-50" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="url"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>URL (可选)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="例如：https://example.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 <FormField
                   control={form.control}

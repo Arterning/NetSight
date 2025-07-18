@@ -68,6 +68,8 @@ type FormValues = z.infer<typeof formSchema>;
 export default function ScannerPage() {
   const [isPending, startTransition] = useTransition();
   const [results, setResults] = useState<Asset[]>([]);
+  const [taskExecutionId, setTaskExecutionId] = useState<string | null>(null);
+  const [stage, setStage] = useState<string>('任务已创建');
   const { toast } = useToast();
   
   const form = useForm<FormValues>({
@@ -109,8 +111,41 @@ export default function ScannerPage() {
 
   const isScheduled = form.watch('isScheduled');
 
+  // 轮询任务进度
+  React.useEffect(() => {
+    if (!taskExecutionId) return;
+    
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/task-execution/${taskExecutionId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setStage(data.stage || '任务已创建');
+          
+          // 如果任务完成或失败，停止轮询
+          if (data.status === 'completed' || data.status === 'failed') {
+            setTaskExecutionId(null);
+            setStage('任务已创建');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to poll task execution:', error);
+      }
+    };
+
+    // 立即执行一次
+    poll();
+    
+    // 每2秒轮询一次
+    const interval = setInterval(poll, 2000);
+    
+    return () => clearInterval(interval);
+  }, [taskExecutionId]);
+
   const onSubmit = (values: FormValues) => {
     setResults([]);
+    setTaskExecutionId(null);
+    setStage('任务已创建');
     startTransition(async () => {
       const response = await scanAndAnalyzeAction(values);
       if (response.error) {
@@ -119,14 +154,12 @@ export default function ScannerPage() {
           title: '发生错误',
           description: response.error,
         });
-      } else {
-        setResults([]);
-        if (values.isScheduled) {
-          toast({
-            title: '定时任务已创建',
-            description: '任务已成功创建并安排执行。',
-          });
-        }
+      } else if (response.taskExecutionId) {
+        setTaskExecutionId(response.taskExecutionId);
+        toast({
+          title: '任务已创建',
+          description: '扫描任务已开始，请等待结果...',
+        });
       }
     });
   };
@@ -398,12 +431,15 @@ export default function ScannerPage() {
       </section>
 
       <section>
-        {isPending ? (
+        {isPending || taskExecutionId ? (
           <div className="flex flex-col items-center justify-center gap-4 text-center">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
             <h2 className="text-2xl font-semibold">扫描网络中</h2>
             <p className="text-muted-foreground">
               正在识别活跃IP并分析资产。这可能需要一些时间...
+            </p>
+            <p className="text-muted-foreground">
+              {stage}
             </p>
           </div>
         ) : results.length > 0 ? (

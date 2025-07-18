@@ -80,7 +80,7 @@ export default function ScannerPage() {
       scanRate: 'adaptive',
       isScheduled: false,
       scheduleType: 'once',
-      crawlDepth: 'full',
+      crawlDepth: 'level1',
       extractImages: true,
       valueKeywords: ['政府', '国家', '金融监管'],
       customCrawlDepth: 2,
@@ -226,9 +226,9 @@ export default function ScannerPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="full">全站</SelectItem>
                           <SelectItem value="level1">仅目标页面</SelectItem>
                           <SelectItem value="level2">目标页面及其链接</SelectItem>
+                          <SelectItem value="full">全站</SelectItem>
                         </SelectContent>
                       </Select>
                     </FormItem>
@@ -238,7 +238,7 @@ export default function ScannerPage() {
                   <FormItem>
                     <FormLabel>自定义爬取深度</FormLabel>
                     <FormControl>
-                      <input
+                      <Input
                         type="number"
                         min={2}
                         defaultValue={2}

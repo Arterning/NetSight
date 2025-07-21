@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 
 export default async function TaskExecutionDetailPage({ params }: { params: { id: string } }) {
   const execution = await prisma.taskExecution.findUnique({
@@ -16,12 +17,21 @@ export default async function TaskExecutionDetailPage({ params }: { params: { id
 
   return (
     <div className="container mx-auto py-8">
+      {execution.status === 'running' && (
+        <div className="flex flex-col items-center justify-center gap-4 text-center mb-8">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <h2 className="text-2xl font-semibold">扫描网络中</h2>
+          <p className="text-muted-foreground">
+            {execution.stage || '正在分析...'}
+          </p>
+        </div>
+      )}
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>扫描执行详情</CardTitle>
           <CardDescription>执行ID: {execution.id}</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className='grid grid-cols-2 gap-2'>
           <div className="mb-2">任务名称: {execution.scheduledTask?.name || '-'}</div>
           <div className="mb-2">描述: {execution.scheduledTask?.description || '-'}</div>
           <div className="mb-2">域名: {execution.scheduledTask?.domain || '-'}</div>

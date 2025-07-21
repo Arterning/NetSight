@@ -80,11 +80,13 @@ export function AssetCard({ asset, onAssetUpdate }: AssetCardProps) {
         <div className="flex justify-between items-start">
           <div className="flex-1 overflow-hidden">
             <CardTitle className="text-lg truncate" title={asset.name || asset.ip}>
-              {asset.name || asset.ip}
+              <div className="flex items-center gap-2 mt-1">
+                <Globe className="w-3 h-3" />
+                {asset.domain || asset.ip}
+              </div>
             </CardTitle>
             <CardDescription className="flex items-center gap-2 text-xs mt-1">
-              <Globe className="w-3 h-3" />
-              <span className="truncate">{asset.domain || asset.ip}</span>
+              <span className="truncate">{asset.name}</span>
             </CardDescription>
           </div>
           <AssetActions asset={asset} onAssetUpdate={onAssetUpdate} />

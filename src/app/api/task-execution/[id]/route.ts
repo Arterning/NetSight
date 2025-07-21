@@ -15,7 +15,8 @@ export async function GET(
         startTime: true,
         endTime: true,
         duration: true,
-        assetsFound: true
+        assetsFound: true,
+        assets: true,
       }
     });
     

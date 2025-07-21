@@ -103,31 +103,26 @@ export default function ScannerPage() {
   // 轮询任务进度
   React.useEffect(() => {
     if (!taskExecutionId) return;
-    
+
+    let polling = true;
     const poll = async () => {
-      try {
-        const response = await fetch(`/api/task-execution/${taskExecutionId}`);
-        if (response.ok) {
-          const data = await response.json();
-          setStage(data.stage || '任务已创建');
-          
-          // 如果任务完成或失败，停止轮询
-          if (data.status === 'completed' || data.status === 'failed') {
-            setTaskExecutionId(null);
-            setStage('任务已创建');
-          }
+      const res = await fetch(`/api/task-execution/${taskExecutionId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setStage(data.stage || '任务已创建');
+        if (data.status === 'completed') {
+          setResults(data.assets || []);
+          polling = false;
+          setTaskExecutionId(null);
         }
-      } catch (error) {
-        console.error('Failed to poll task execution:', error);
+        if (data.status === 'failed') {
+          polling = false;
+          setTaskExecutionId(null);
+        }
       }
     };
-
-    // 立即执行一次
     poll();
-    
-    // 每2秒轮询一次
-    const interval = setInterval(poll, 2000);
-    
+    const interval = setInterval(() => { if (polling) poll(); }, 2000);
     return () => clearInterval(interval);
   }, [taskExecutionId]);
 

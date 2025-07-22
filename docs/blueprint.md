@@ -1,19 +1,16 @@
-# **App Name**: NetSight
+# 业务测绘
+## 网站画像
+网站的性质
+管理单位
+所属领域
 
-## Core Features:
+## 站内关键信息
+站内提及的人员信息
+网站关联组织/友链
+网站上敏感信息
 
-- IP Range Input: Accept user-defined IP ranges as input for network scanning.
-- Network Scanning: Utilize Nmap and Masscan for parallel scanning to identify active IPs.
-- Adaptive Scanning Rate: Dynamically adjust scanning rate based on network conditions to avoid disruption.
-- Intelligent Asset Analysis: Employ an AI tool to analyze website content across multiple levels, summarizing the purpose, function, and services of identified assets.
-- Business Value Identification: Determine business value delivered, if any, using an AI tool that summarizes and extracts value propositions from each website found.
-- IP Association Analysis: Analyze the relationships between IP addresses, domains, geographical locations, and network topologies by acting as a reasoning tool and using IP geolocation databases (e.g., GeoIP) and domain resolution records to relate an IP back to its services
-- Theme Toggle: Provide dark/light theme toggle.
-
-## Style Guidelines:
-
-- default theme is tailwind default dark theme, and support light/dark switch
-- Body and headline font: 'Inter' (sans-serif) for clear, readable display of technical data. This font is suitable for both headlines and body text.
-- Code font: 'Source Code Pro' (monospace) for displaying command-line outputs or configurations.
-- Use minimalist icons to represent different asset types, network statuses, and analysis tools, focusing on clarity and usability.
-- Design a responsive layout that adapts to different screen sizes, ensuring the platform is accessible across devices. Use a card-based layout for presenting individual asset summaries.
+## 扩展分析
+网站所属组织与关联的组织的架构图脆弱性分析(可以把源码下载下来丢给AI分析)
+源码中泄露的敏感信息，如密钥等
+源码中泄露的接口信息
+AI直接分析可能的安全威胁

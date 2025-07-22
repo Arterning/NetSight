@@ -99,6 +99,7 @@ export async function getScanHistory(): Promise<any[]> {
   return prisma.taskExecution.findMany({
     include: {
       scheduledTask: true, // Include the related scheduled task to get its name
+      assets: true,
     },
     orderBy: {
       startTime: 'desc',

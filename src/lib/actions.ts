@@ -342,11 +342,11 @@ export async function scanAndAnalyzeAction(
           await prisma.asset.update({
             where: { id: assetId },
             data: {
-              valuePropositionScore: 8,
+              valuePropositionScore: businessValueResult.valuePropositionScore,
               summary: analysisResult,
               geolocation,
               openPorts: openPortsStr,
-              services: businessValueResult,
+              services: businessValueResult.analysis,
               networkTopology: associationResult,
             },
           });

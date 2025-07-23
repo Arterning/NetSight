@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer';
 import { URL } from 'url'; // Node 内置，用于解析绝对链接
 
 export async function crawlPage(url: string) {
-  const browser = await puppeteer.launch({ headless: 'new' });
+  const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
 
   await page.setUserAgent(
@@ -54,7 +54,7 @@ export async function crawlPage(url: string) {
     .filter((href) => !!href && !href.startsWith('javascript:') && !href.startsWith('#'))
     .map((href) => {
       try {
-        return new URL(href, baseUrl).href;
+        return new URL(href as string, baseUrl).href;
       } catch {
         return null;
       }

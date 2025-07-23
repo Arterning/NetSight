@@ -51,12 +51,17 @@ export function WebpageViewer({ url, content }: WebpageViewerProps) {
             />
           </TabsContent>
           <TabsContent value="content" className='h-full w-full'>
-            <iframe
+            {/* <iframe
               srcDoc={content}
               className="w-full h-full"
               sandbox="allow-same-origin" // For security, restrict iframe capabilities
               title="Webpage Content"
-            />
+            /> */}
+            <div className="p-4 rounded-md mt-2">
+              <h3 className="text-lg font-semibold mb-2">Extracted Content</h3>
+              {/* Display the content directly if it's not HTML */}
+              { content }
+            </div>
           </TabsContent>
           </Tabs>
         </div>

@@ -33,14 +33,14 @@ export function WebpageViewer({ url, content }: WebpageViewerProps) {
         <DialogHeader>
           <DialogTitle>Webpage Content</DialogTitle>
           <DialogDescription>
-            Viewing content from: <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{url}</a>
+            Viewing content from: <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline whitespace-pre-wrap break-words">{url}</a>
           </DialogDescription>
         </DialogHeader>
         <div className="flex-grow mt-4">
-          <Tabs defaultValue="original" className='h-full w-full flex flex-col'>
+          <Tabs defaultValue="content" className='h-full w-full flex flex-col'>
             <TabsList>
-              <TabsTrigger value="original">Original</TabsTrigger>
               <TabsTrigger value="content">Content</TabsTrigger>
+              <TabsTrigger value="original">Original</TabsTrigger>
             </TabsList>
             <TabsContent value="original" className='flex-grow'>
               <iframe
@@ -52,7 +52,7 @@ export function WebpageViewer({ url, content }: WebpageViewerProps) {
             </TabsContent>
             <TabsContent value="content" className='flex-grow'>
               <ScrollArea className="h-full w-full rounded-md border p-4">
-                <div className="whitespace-pre-wrap break-words">
+                <div className="h-96  whitespace-pre-wrap break-words">
                   {content}
                 </div>
               </ScrollArea>

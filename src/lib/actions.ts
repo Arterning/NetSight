@@ -108,13 +108,29 @@ export type ScanAndAnalyzeResult = {
  * @param sourceUrl 当前页面URL
  * @param targetUrl 新发现的链接URL
  */
-export async function handleNewDomainAndAssociation(sourceAssetId: string, sourceUrl: string, targetUrl: string) {
+export async function handleNewDomainAndAssociation(taskExecutionId: string, sourceAssetId: string, sourceUrl: string, targetUrl: string) {
+  
+  console.log(`Handling url association: ${sourceUrl} -> ${targetUrl}`);
+
+  const sourceDomain = getDomainFromUrl(sourceUrl);
   const targetDomain = getDomainFromUrl(targetUrl);
+
+  console.log(`Handling new domain association: ${sourceDomain} -> ${targetDomain}`);
+
+  if (sourceDomain === targetDomain) {
+    // 如果源和目标域名相同，则不需要处理
+    console.log(`Source and target domains are the same: ${sourceDomain}`);
+    return;
+  }
+
   // 查找或新建 Asset
   let targetAsset = await prisma.asset.findFirst({ where: { domain: targetDomain } });
   if (!targetAsset) {
-    targetAsset = await prisma.asset.create({ data: { taskName: '', domain: targetDomain, ip: '', status: 'Active' } });
+    targetAsset = await prisma.asset.create({ data: { taskExecutionId, taskName: '', domain: targetDomain, ip: '', status: 'Active' } });
   }
+
+  console.log(`Create assetAssociation Source domain: ${sourceDomain}, Target domain: ${targetDomain}`);
+
   // 创建关联
   await prisma.assetAssociation.create({
     data: {
@@ -155,6 +171,9 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
         homepageContent = content;
         homepageTitle = title;
       }
+
+      // 处理新域名和关联
+      await handleNewDomainAndAssociation(taskExecutionId, assetId, startUrl, url);
 
       // 清理内容中的 null 字节
       const cleanHtmlContent = htmlContent.replace(/\x00/g, '');

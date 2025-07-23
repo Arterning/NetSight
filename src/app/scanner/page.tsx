@@ -151,7 +151,7 @@ export default function ScannerPage() {
   return (
     <>
       <section className="mb-12">
-        <Card className="max-w-2xl mx-auto">
+        <Card className="max-w-5xl mx-auto">
           <CardHeader>
             <div className="flex justify-between items-center">
               <div>
@@ -170,7 +170,7 @@ export default function ScannerPage() {
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-2 gap-4 ">
 
                 <FormField
                   control={form.control}
@@ -403,7 +403,7 @@ export default function ScannerPage() {
                   />
                 )}
 
-                <Button type="submit" className="w-full" disabled={isPending}>
+                <Button type="submit" className="w-full col-span-2" disabled={isPending}>
                   {isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (

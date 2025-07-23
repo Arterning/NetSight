@@ -40,11 +40,22 @@ const assetSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 type AssetFormValues = z.infer<typeof assetSchema>;
 
+async function getIpFromDomain(domain: string): Promise<string | null> {
+  try {
+    const { address } = await dns.lookup(domain);
+    return address;
+  } catch (error) {
+    console.error(`Could not resolve IP for domain: ${domain}`, error);
+    return null;
+  }
+}
+
 async function getGeolocationFromUrl(url: string): Promise<string> {
   try {
     const hostname = new URL(url).hostname;
-    const { address } = await dns.lookup(hostname);
-    const res = await fetch(`http://ip-api.com/json/${address}?lang=zh-CN`);
+    const ip = await getIpFromDomain(hostname);
+    if (!ip) return '未知';
+    const res = await fetch(`http://ip-api.com/json/${ip}?lang=zh-CN`);
     const data = await res.json();
     if (data.status === 'success') {
       return `${data.country || ''}${data.regionName ? ', ' + data.regionName : ''}${data.city ? ', ' + data.city : ''}`;
@@ -58,7 +69,8 @@ async function getGeolocationFromUrl(url: string): Promise<string> {
 
 async function scanOpenPorts(host: string, ports: number[], timeout = 1000): Promise<number[]> {
   const openPorts: number[] = [];
-  const ip = (await dns.lookup(host)).address;
+  const ip = await getIpFromDomain(host);
+  if (!ip) return [];
 
   await Promise.all(
     ports.map(port =>
@@ -126,7 +138,33 @@ export async function handleNewDomainAndAssociation(taskExecutionId: string, sou
   // 查找或新建 Asset
   let targetAsset = await prisma.asset.findFirst({ where: { domain: targetDomain } });
   if (!targetAsset) {
-    targetAsset = await prisma.asset.create({ data: { taskExecutionId, taskName: '', domain: targetDomain, ip: targetDomain, status: 'Active' } });
+    const resolvedIp = await getIpFromDomain(targetDomain);
+    if (!resolvedIp) {
+      console.error(`Could not resolve IP for new domain ${targetDomain}. Cannot create asset.`);
+      return;
+    }
+    
+    // Check for an existing asset with the same IP to avoid unique constraint errors
+    const existingAssetWithIp = await prisma.asset.findUnique({ where: { ip: resolvedIp } });
+
+    if (existingAssetWithIp) {
+      targetAsset = existingAssetWithIp;
+    } else {
+      targetAsset = await prisma.asset.create({ 
+        data: { 
+          taskExecutionId, 
+          taskName: '', 
+          domain: targetDomain, 
+          ip: resolvedIp, 
+          status: 'Active' 
+        } 
+      });
+    }
+  }
+
+  if (!targetAsset) {
+    console.log(`Failed to find or create asset for domain: ${targetDomain}.`);
+    return;
   }
 
   console.log(`Create assetAssociation Source domain: ${sourceDomain}, Target domain: ${targetDomain}`);
@@ -282,7 +320,12 @@ export async function scanAndAnalyzeAction(
     
           if (target.type === 'url') {
             displayUrl = target.value;
-            ip = new URL(displayUrl).hostname; // Using hostname as a stand-in for IP
+            const domain = new URL(displayUrl).hostname;
+            const resolvedIp = await getIpFromDomain(domain);
+            if (!resolvedIp) {
+              throw new Error(`Could not resolve IP for initial target domain: ${domain}`);
+            }
+            ip = resolvedIp;
           } else { // ip
             ip = target.value;
             displayUrl = `http://${ip}`;

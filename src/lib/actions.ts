@@ -126,7 +126,7 @@ export async function handleNewDomainAndAssociation(taskExecutionId: string, sou
   // 查找或新建 Asset
   let targetAsset = await prisma.asset.findFirst({ where: { domain: targetDomain } });
   if (!targetAsset) {
-    targetAsset = await prisma.asset.create({ data: { taskExecutionId, taskName: '', domain: targetDomain, ip: '', status: 'Active' } });
+    targetAsset = await prisma.asset.create({ data: { taskExecutionId, taskName: '', domain: targetDomain, ip: targetDomain, status: 'Active' } });
   }
 
   console.log(`Create assetAssociation Source domain: ${sourceDomain}, Target domain: ${targetDomain}`);
@@ -195,6 +195,7 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
 
       
     } catch (e) {
+      console.error(`Error crawling ${url}:`, e);
       continue;
     }
   }

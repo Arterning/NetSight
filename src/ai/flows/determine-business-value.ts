@@ -19,7 +19,8 @@ ${input.content}
 3. 综合评估整体业务价值
 4. 给出改进建议（如果有的话）
 5. 请给出网站内容与上述关键词的整体相关性评分（0-100，0为完全无关，100为高度相关），并以如下JSON格式输出：
-{"valuePropositionScore": 88, "analysis": "你的详细分析内容..."}`;
+{"valuePropositionScore": 88, "analysis": "你的详细分析内容..."}
+valuePropositionScore是数字，analysis是字符串。`;
 
   const completion = await openai.chat.completions.create({
     model: 'deepseek-chat',

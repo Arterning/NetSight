@@ -293,6 +293,9 @@ export async function scanAndAnalyzeAction(
           sitemapXml = crawlResult.sitemapXml;
           homepageContent = crawlResult.homepageContent;
           homepageTitle = crawlResult.homepageTitle;
+
+          console.log(`homepageTitle: ${homepageTitle}, homepageContent: ${homepageContent}`);
+
     
           // 2. 爬取后AI分析前，更新 stage
           if (taskExecutionId) {

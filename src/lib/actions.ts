@@ -120,11 +120,12 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
         data: { stage: `正在扫描${url}` },
       });
       const response = await crawlPage(url);
-      htmlContent = response.text
+      const content = response.text;
+      htmlContent = response.htmlContent
       title = response.title;
 
       if (homepageContent === '' && depth === 0) {
-        homepageContent = htmlContent;
+        homepageContent = content;
         homepageTitle = title;
       }
 
@@ -133,8 +134,8 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
       // 保存页面内容到数据库
       await prisma.webpage.upsert({
         where: { assetId_url: { assetId, url } },
-        update: { content: cleanHtmlContent, title, isHomepage: depth === 0 },
-        create: { assetId, url, content: cleanHtmlContent, title, isHomepage: depth === 0 },
+        update: { htmlContent: cleanHtmlContent, content: content, title, isHomepage: depth === 0 },
+        create: { assetId, url, htmlContent: cleanHtmlContent, content: content, title, isHomepage: depth === 0 },
       });
       
       const links = response.links || [];

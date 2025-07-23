@@ -61,11 +61,14 @@ export async function crawlPage(url: string) {
     })
     .filter((href) => !!href); // 去除解析失败的
 
+  const content = await page.content();
+
   await browser.close();
 
   return {
     url,
     title: result.title,
+    htmlContent: content,
     text: result.textContent.trim(),
     links: Array.from(new Set(absoluteLinks)), // 去重
   };

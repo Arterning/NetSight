@@ -113,7 +113,7 @@ export async function handleNewDomainAndAssociation(sourceAssetId: string, sourc
   // 查找或新建 Asset
   let targetAsset = await prisma.asset.findFirst({ where: { domain: targetDomain } });
   if (!targetAsset) {
-    targetAsset = await prisma.asset.create({ data: { domain: targetDomain, ip: '', status: 'Active' } });
+    targetAsset = await prisma.asset.create({ data: { taskName: '', domain: targetDomain, ip: '', status: 'Active' } });
   }
   // 创建关联
   await prisma.assetAssociation.create({

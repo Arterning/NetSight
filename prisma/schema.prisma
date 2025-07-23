@@ -36,6 +36,8 @@ model Asset {
   taskExecution           TaskExecution? @relation(fields: [taskExecutionId], references: [id])
   webpages                Webpage[]
   sitemapXml              String?   // 存储sitemap.xml内容
+  sourceAssociations      AssetAssociation[] @relation("SourceAsset")
+  targetAssociations      AssetAssociation[] @relation("TargetAsset")
 }
 
 model Webpage {
@@ -84,4 +86,16 @@ model TaskExecution {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   assets          Asset[]
+}
+
+model AssetAssociation {
+  id            String   @id @default(cuid())
+  sourceAssetId String
+  targetAssetId String
+  sourceUrl     String
+  targetUrl     String
+  createdAt     DateTime @default(now())
+
+  sourceAsset   Asset    @relation("SourceAsset", fields: [sourceAssetId], references: [id])
+  targetAsset   Asset    @relation("TargetAsset", fields: [targetAssetId], references: [id])
 }

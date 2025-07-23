@@ -29,45 +29,36 @@ export function WebpageViewer({ url, content }: WebpageViewerProps) {
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">View Content</Button>
       </DialogTrigger>
-      <DialogContent className="max-w-6xl h-[90vh]">
-        <div className='flex flex-col gap-2'>
-          <DialogHeader>
-            <DialogTitle>Webpage Content</DialogTitle>
-            <DialogDescription>
-              Viewing content from: <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{url}</a>
-            </DialogDescription>
-          </DialogHeader>
-          <Tabs defaultValue="original" className='h-full w-full'>
-          <TabsList>
-            <TabsTrigger value="original">Original</TabsTrigger>
-            <TabsTrigger value="content">Content</TabsTrigger>
-          </TabsList>
-          <TabsContent value="original" className='h-full w-full'>
-            <iframe
-              src={url}
-              className="w-full h-full"
-              sandbox="allow-same-origin" // For security, restrict iframe capabilities
-              title="Webpage Original"
-            />
-          </TabsContent>
-          <TabsContent value="content" className='h-full w-full'>
-            {/* <iframe
-              srcDoc={content}
-              className="w-full h-full"
-              sandbox="allow-same-origin" // For security, restrict iframe capabilities
-              title="Webpage Content"
-            /> */}
-            <div className="p-4 rounded-md mt-2">
-              <h3 className="text-lg font-semibold mb-2">Extracted Content</h3>
-              {/* Display the content directly if it's not HTML */}
-              { content }
-            </div>
-          </TabsContent>
+      <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Webpage Content</DialogTitle>
+          <DialogDescription>
+            Viewing content from: <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{url}</a>
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex-grow mt-4">
+          <Tabs defaultValue="original" className='h-full w-full flex flex-col'>
+            <TabsList>
+              <TabsTrigger value="original">Original</TabsTrigger>
+              <TabsTrigger value="content">Content</TabsTrigger>
+            </TabsList>
+            <TabsContent value="original" className='flex-grow'>
+              <iframe
+                src={url}
+                className="w-full h-full border-0"
+                sandbox="allow-same-origin" // For security, restrict iframe capabilities
+                title="Webpage Original"
+              />
+            </TabsContent>
+            <TabsContent value="content" className='flex-grow'>
+              <ScrollArea className="h-full w-full rounded-md border p-4">
+                <div className="whitespace-pre-wrap break-words">
+                  {content}
+                </div>
+              </ScrollArea>
+            </TabsContent>
           </Tabs>
         </div>
-        {/* <ScrollArea className="h-full w-full rounded-md border p-4">
-          
-        </ScrollArea> */}
       </DialogContent>
     </Dialog>
   );

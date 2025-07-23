@@ -9,6 +9,7 @@ import net from 'net';
 import { crawlPage } from './crawl';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { getDomainFromUrl } from '@/lib/utils'; 
 import { createScheduledTask, updateNextRunTime } from '@/lib/task-actions';
 
 const formSchema = z.object({
@@ -99,6 +100,32 @@ export type ScanAndAnalyzeResult = {
   association: { domain: string; geolocation: string; services: string; networkTopology: string };
   id: string;
 };
+
+
+/**
+ * 处理新域名：如遇到新域名则新建 Asset，并创建 AssetAssociation 关联。
+ * @param sourceAssetId 当前页面所属资产ID
+ * @param sourceUrl 当前页面URL
+ * @param targetUrl 新发现的链接URL
+ */
+export async function handleNewDomainAndAssociation(sourceAssetId: string, sourceUrl: string, targetUrl: string) {
+  const targetDomain = getDomainFromUrl(targetUrl);
+  // 查找或新建 Asset
+  let targetAsset = await prisma.asset.findFirst({ where: { domain: targetDomain } });
+  if (!targetAsset) {
+    targetAsset = await prisma.asset.create({ data: { domain: targetDomain, ip: '', status: 'Active' } });
+  }
+  // 创建关联
+  await prisma.assetAssociation.create({
+    data: {
+      sourceAssetId,
+      targetAssetId: targetAsset.id,
+      sourceUrl,
+      targetUrl,
+    }
+  });
+  return targetAsset;
+}
 
 
 const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number = 3, taskExecutionId: string) => {

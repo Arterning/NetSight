@@ -1,8 +1,14 @@
-import puppeteer from 'puppeteer';
-import { URL } from 'url'; // Node 内置，用于解析绝对链接
+import puppeteer, { HTTPResponse } from 'puppeteer';
+import { URL } from 'url';
+
+interface Vulnerability {
+  type: string;
+  description: string;
+  severity: 'Low' | 'Medium' | 'High' | 'Critical';
+}
 
 export async function crawlPage(url: string) {
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
   const page = await browser.newPage();
 
   await page.setUserAgent(
@@ -10,10 +16,117 @@ export async function crawlPage(url: string) {
   );
 
   console.log(`Visiting ${url}`);
-  await page.goto(url, { waitUntil: 'networkidle0' });
+  let response: HTTPResponse | null = null;
+  try {
+    response = await page.goto(url, { waitUntil: 'networkidle0' });
+  } catch (error) {
+    console.error(`Failed to navigate to ${url}:`, error);
+    await browser.close();
+    // Return a specific structure for failed crawls
+    return {
+      url,
+      title: 'Crawl Failed',
+      htmlContent: '',
+      text: `Failed to navigate to URL.`,
+      links: [],
+      vulnerabilities: JSON.stringify([{
+        type: 'Crawl Error',
+        description: `Puppeteer failed to navigate to the page. Error: ${error instanceof Error ? error.message : String(error)}`,
+        severity: 'Critical'
+      }])
+    };
+  }
 
-  const result = await page.evaluate(() => {
-    // 提取可见文本
+
+  const headers = response?.headers() || {};
+  const vulnerabilities: Vulnerability[] = [];
+
+  // 1. Clickjacking Check
+  const xFrameOptions = headers['x-frame-options']?.toLowerCase();
+  const csp = headers['content-security-policy'];
+  if (!xFrameOptions && (!csp || !csp.includes('frame-ancestors'))) {
+    vulnerabilities.push({
+      type: 'Clickjacking',
+      description: 'The page is missing the X-Frame-Options header or a Content-Security-Policy with frame-ancestors directive. This could allow the page to be embedded in an iframe on a malicious site.',
+      severity: 'Medium',
+    });
+  }
+
+  // 2. CORS Misconfiguration Check
+  const acao = headers['access-control-allow-origin'];
+  if (acao === '*') {
+    vulnerabilities.push({
+      type: 'CORS Misconfiguration',
+      description: 'The Access-Control-Allow-Origin header is set to "*", which is overly permissive. This could allow malicious websites to make requests to this page and read the response.',
+      severity: 'Medium',
+    });
+  }
+  
+  // 3. Missing Content-Security-Policy (CSP) Header
+  if (!csp) {
+    vulnerabilities.push({
+        type: 'Missing CSP Header',
+        description: 'The Content-Security-Policy (CSP) header is not set. A strong CSP can help prevent Cross-Site Scripting (XSS) and other injection attacks.',
+        severity: 'Medium'
+    });
+  }
+
+
+  const pageAnalysisResult = await page.evaluate(() => {
+    const foundVulnerabilities: Vulnerability[] = [];
+
+    // 4. Sensitive Information Leakage in HTML content
+    const html = document.documentElement.outerHTML;
+    const sensitivePatterns = {
+      // Regex for common API keys
+      GOOGLE_API_KEY: /AIza[0-9A-Za-z-_]{35}/g,
+      AWS_ACCESS_KEY_ID: /AKIA[0-9A-Z]{16}/g,
+      GITHUB_TOKEN: /[a-zA-Z0-9_-]{40}/g, // Covers various token formats
+      // Regex for private keys
+      PRIVATE_KEY: /-----BEGIN (RSA|EC|PGP|OPENSSH) PRIVATE KEY-----/g,
+      // Regex for sensitive file exposures in comments or scripts
+      ENV_FILE: /\.env/g,
+      CONFIG_FILE: /wp-config\.php/g,
+    };
+
+    for (const [key, regex] of Object.entries(sensitivePatterns)) {
+      if (regex.test(html)) {
+        foundVulnerabilities.push({
+          type: 'Sensitive Information Leakage',
+          description: `Potential exposure of ${key} found in the page's HTML source.`,
+          severity: 'High',
+        });
+      }
+    }
+
+    // 5. CSRF Token Check in Forms
+    document.querySelectorAll('form').forEach((form, index) => {
+      const method = form.method.toUpperCase();
+      // Check forms that typically cause state changes
+      if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
+        const hasCsrfToken = !!form.querySelector('input[type="hidden"][name*="csrf"], input[type="hidden"][name*="token"], input[type="hidden"][name*="nonce"]');
+        if (!hasCsrfToken) {
+          foundVulnerabilities.push({
+            type: 'Missing CSRF Token',
+            description: `A form (action: ${form.action || 'N/A'}, method: ${method}) appears to be missing a CSRF token, which could make it vulnerable to Cross-Site Request Forgery.`,
+            severity: 'Medium',
+          });
+        }
+      }
+    });
+    
+    // 6. Basic XSS check: Look for insecure `innerHTML` usage in scripts
+    // This is a very basic check and might have false positives. A real test would involve injecting payloads.
+    const scripts = Array.from(document.scripts).map(s => s.innerHTML).join('\n');
+    if (scripts.includes('.innerHTML=')) {
+        foundVulnerabilities.push({
+            type: 'Potential XSS via innerHTML',
+            description: 'A script on the page uses `.innerHTML=`, which can be a vector for XSS if user-provided data is not properly sanitized. Manual review is recommended.',
+            severity: 'Low'
+        });
+    }
+
+    // --- Existing page data extraction ---
     function getVisibleText(node: Node): string {
       const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
         acceptNode: (node) => {
@@ -44,32 +157,34 @@ export async function crawlPage(url: string) {
     return {
       title,
       textContent: getVisibleText(document.body),
-      rawLinks, // 注意：相对地址
+      rawLinks,
+      vulnerabilities: foundVulnerabilities,
     };
   });
 
-  // 使用 Node 的 URL 类将相对地址转换为绝对地址
+  vulnerabilities.push(...pageAnalysisResult.vulnerabilities);
+
   const baseUrl = new URL(url);
-  const absoluteLinks = result.rawLinks
-    .filter((href) => !!href && !href.startsWith('javascript:') && !href.startsWith('#'))
+  const absoluteLinks = (pageAnalysisResult.rawLinks || [])
+    .filter((href): href is string => !!href && !href.startsWith('javascript:') && !href.startsWith('#'))
     .map((href) => {
       try {
-        return new URL(href as string, baseUrl).href;
+        return new URL(href, baseUrl).href;
       } catch {
         return null;
       }
     })
-    .filter((href) => !!href); // 去除解析失败的
+    .filter((href): href is string => !!href);
 
   const content = await page.content();
-
   await browser.close();
 
   return {
     url,
-    title: result.title,
+    title: pageAnalysisResult.title,
     htmlContent: content,
-    text: result.textContent.trim(),
-    links: Array.from(new Set(absoluteLinks)), // 去重
+    text: pageAnalysisResult.textContent.trim(),
+    links: Array.from(new Set(absoluteLinks)),
+    vulnerabilities: JSON.stringify(vulnerabilities),
   };
 }

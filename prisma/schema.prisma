@@ -46,6 +46,7 @@ model Webpage {
   title       String?
   content     String?
   htmlContent String?
+  vulnerabilities String? // 存储漏洞信息
   isHomepage  Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

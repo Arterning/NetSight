@@ -92,7 +92,7 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
                         <span className="font-medium truncate" title={page.title || page.url}>{page.title || 'Untitled Page'}</span>
                         {page.isHomepage && <Badge variant="secondary">Homepage</Badge>}
                       </div>
-                      <WebpageViewer url={page.url} content={page.content || ''} />
+                      <WebpageViewer url={page.url} content={page.content || '' } vulnerabilities={page.vulnerabilities}/>
                     </li>
                   ))}
                 </ul>

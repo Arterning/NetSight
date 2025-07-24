@@ -21,9 +21,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 type WebpageViewerProps = {
   url: string;
   content: string;
+  vulnerabilities?: string;
 };
 
-export function WebpageViewer({ url, content }: WebpageViewerProps) {
+export function WebpageViewer({ url, content, vulnerabilities }: WebpageViewerProps) {
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -41,6 +42,7 @@ export function WebpageViewer({ url, content }: WebpageViewerProps) {
             <TabsList>
               <TabsTrigger value="content">Content</TabsTrigger>
               <TabsTrigger value="original">Original</TabsTrigger>
+              <TabsTrigger value="vulnerabilities">Vulnerabilities</TabsTrigger>
             </TabsList>
             <TabsContent value="original" className='flex-grow'>
               <iframe
@@ -54,6 +56,13 @@ export function WebpageViewer({ url, content }: WebpageViewerProps) {
               <ScrollArea className="h-full w-full rounded-md border p-4">
                 <div className="h-96  whitespace-pre-wrap break-words">
                   {content}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+            <TabsContent value="vulnerabilities" className='flex-grow'>
+              <ScrollArea className="h-full w-full rounded-md border p-4">
+                <div className="h-96 whitespace-pre-wrap break-words text-red-600">
+                  {vulnerabilities ? vulnerabilities : 'No vulnerabilities detected.'}
                 </div>
               </ScrollArea>
             </TabsContent>

@@ -145,7 +145,7 @@ export function AssetActions({ asset, onAssetUpdate }: AssetActionsProps) {
           <DialogHeader>
             <DialogTitle>Edit Asset</DialogTitle>
             <DialogDescription>
-              Update the details for {asset.ip}.
+              Update the details for {asset.domain}.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditSubmit}>
@@ -166,13 +166,21 @@ export function AssetActions({ asset, onAssetUpdate }: AssetActionsProps) {
                 <Label htmlFor="geolocation">Geolocation</Label>
                 <Input id="geolocation" value={formData.geolocation} onChange={handleInputChange} />
               </div>
-              <div>
-                <Label htmlFor="services">Services</Label>
-                <Input id="services" value={formData.services} onChange={handleInputChange} />
+              <div className="col-span-2">
+                <Label htmlFor="services">Summary</Label>
+                <Textarea id="services" value={formData.summary} onChange={handleInputChange} />
               </div>
-              <div>
+              <div className="col-span-2">
+                <Label htmlFor="services">Services</Label>
+                <Textarea id="services" value={formData.services} onChange={handleInputChange} />
+              </div>
+              <div className="col-span-2">
                 <Label htmlFor="networkTopology">Network Topology</Label>
-                <Input id="networkTopology" value={formData.networkTopology} onChange={handleInputChange} />
+                <Textarea id="networkTopology" value={formData.networkTopology} onChange={handleInputChange} />
+              </div>
+              <div className="col-span-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea id="description" value={formData.description} onChange={handleInputChange} />
               </div>
               <div>
                 <Label htmlFor="tags">Tags</Label>
@@ -185,10 +193,6 @@ export function AssetActions({ asset, onAssetUpdate }: AssetActionsProps) {
               <div className="col-span-2">
                 <Label htmlFor="name">Name</Label>
                 <Input id="name" value={formData.name} onChange={handleInputChange} />
-              </div>
-              <div className="col-span-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea id="description" value={formData.description} onChange={handleInputChange} />
               </div>
               <div>
                 <Label htmlFor="status">Status</Label>

@@ -185,6 +185,6 @@ export async function crawlPage(url: string) {
     htmlContent: content,
     text: pageAnalysisResult.textContent.trim(),
     links: Array.from(new Set(absoluteLinks)),
-    vulnerabilities: JSON.stringify(vulnerabilities),
+    vulnerabilities,
   };
 }

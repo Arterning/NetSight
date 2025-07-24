@@ -215,11 +215,13 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
 
       // 清理内容中的 null 字节
       const cleanHtmlContent = htmlContent.replace(/\x00/g, '');
+
+      const { vulnerabilities } = response;
       // 保存页面内容到数据库
       await prisma.webpage.upsert({
         where: { assetId_url: { assetId, url } },
-        update: { htmlContent: cleanHtmlContent, content: content, title, isHomepage: depth === 0 },
-        create: { assetId, url, htmlContent: cleanHtmlContent, content: content, title, isHomepage: depth === 0 },
+        update: { htmlContent: cleanHtmlContent, content: content, title, isHomepage: depth === 0, vulnerabilities },
+        create: { assetId, url, htmlContent: cleanHtmlContent, content: content, title, isHomepage: depth === 0, vulnerabilities },
       });
       
       const links = response.links || [];

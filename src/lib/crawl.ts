@@ -179,12 +179,17 @@ export async function crawlPage(url: string) {
   const content = await page.content();
   await browser.close();
 
+  // 将 vulnerabilities 转换为友好阅读的文本
+  const volnerabilitiesText = vulnerabilities.map(v =>
+    `Type: ${v.type}\nDescription: ${v.description}\nSeverity: ${v.severity}\n`
+  ).join('\n');
+  
   return {
     url,
     title: pageAnalysisResult.title,
     htmlContent: content,
     text: pageAnalysisResult.textContent.trim(),
     links: Array.from(new Set(absoluteLinks)),
-    vulnerabilities,
+    vulnerabilities: volnerabilitiesText,
   };
 }

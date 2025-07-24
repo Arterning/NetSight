@@ -149,7 +149,7 @@ export function AssetActions({ asset, onAssetUpdate }: AssetActionsProps) {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditSubmit}>
-            <div className="grid grid-cols-2 gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4 py-4 px-4 max-h-[60vh] overflow-y-auto">
               <div>
                 <Label htmlFor="ip">IP</Label>
                 <Input id="ip" value={formData.ip} onChange={handleInputChange} />

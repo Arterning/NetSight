@@ -43,6 +43,23 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
+              {asset.imageBase64 && (
+                <>
+                  <section>
+                    <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
+                      <FileText className="w-5 h-5" /> Homepage Screenshot
+                    </h3>
+                    <div className="mt-4">
+                      <img
+                        src={asset.imageBase64}
+                        alt={`${asset.domain} screenshot`}
+                        className="rounded-lg border object-contain w-full"
+                      />
+                    </div>
+                  </section>
+                  <Separator />
+                </>
+              )}
               <section>
                 <h3 className="text-lg font-semibold flex items-center gap-2 mb-3"><FileText className="w-5 h-5" /> Summary</h3>
                 <div className="prose prose-sm max-w-none">

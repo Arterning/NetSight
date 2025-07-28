@@ -232,12 +232,17 @@ export async function crawlMetaData(url :string) {
       } catch (error) {
         console.error('Failed to download image:', error)
         metadata.image_error = 'Image download failed'
+        metadata.error = 'Failed to fetch image'
+        metadata.image_base64 = ''
       }
     }
 
     return metadata
   } catch (error) {
     console.error('Error:', error)
-    return {}
+    return {
+      image_base64: '',
+      error: 'Failed to fetch metadata',
+    }
   }
 }

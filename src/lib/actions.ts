@@ -6,7 +6,7 @@ import { determineBusinessValue } from '@/ai/flows/determine-business-value';
 import { ipAssociationAnalysis } from '@/ai/flows/ip-association-analysis';
 import dns from 'dns/promises';
 import net from 'net';
-import { crawlPage } from './crawl';
+import { crawlPage, crawlMetaData } from './crawl';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { getDomainFromUrl } from '@/lib/utils'; 
@@ -188,6 +188,8 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
   const urls: string[] = [];
   let homepageContent = '';
   let homepageTitle = '';
+  let homepageBase64Image = '';
+  let homepageMetaData: Record<string, string> = {};
   while (queue.length > 0) {
     const { url, depth } = queue.shift()!;
     if (visited.has(url) || depth > maxDepth) continue;
@@ -196,10 +198,21 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
     let htmlContent = '';
     let title = '';
     try {
+
       await prisma.taskExecution.update({
         where: { id: taskExecutionId },
-        data: { stage: `正在扫描${url}` },
+        data: { stage: `获取${url}的元数据` },
       });
+
+      const metaData = await crawlMetaData(url);
+      const { image_base64, ...meta } = metaData;
+
+      await prisma.taskExecution.update({
+        where: { id: taskExecutionId },
+        data: { stage: `扫描${url}的内容` },
+      });
+
+
       const response = await crawlPage(url);
       const content = response.text;
       htmlContent = response.htmlContent
@@ -208,6 +221,8 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
       if (homepageContent === '' && depth === 0) {
         homepageContent = content;
         homepageTitle = title;
+        homepageBase64Image = metaData.image_base64 || '';
+        homepageMetaData = meta || {};
       }
 
       // 处理新域名和关联
@@ -220,8 +235,26 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
       // 保存页面内容到数据库
       await prisma.webpage.upsert({
         where: { assetId_url: { assetId, url } },
-        update: { htmlContent: cleanHtmlContent, content: content, title, isHomepage: depth === 0, vulnerabilities },
-        create: { assetId, url, htmlContent: cleanHtmlContent, content: content, title, isHomepage: depth === 0, vulnerabilities },
+        update: { 
+          htmlContent: cleanHtmlContent, 
+          content: content, 
+          title, 
+          isHomepage: depth === 0, 
+          vulnerabilities,
+          metadata: meta || null, // 保存元数据
+          imageBase64: image_base64 || null, 
+        },
+        create: { 
+          assetId, 
+          url, 
+          htmlContent: cleanHtmlContent, 
+          content: content, 
+          title, 
+          isHomepage: depth === 0, 
+          vulnerabilities,
+          metadata: meta || null, // 保存元数据
+          imageBase64: image_base64 || null, // 如果有图片则保存
+        },
       });
       
       const links = response.links || [];
@@ -244,7 +277,7 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
     urls.map(u => `  <url><loc>${u}</loc></url>`).join('\n') +
     '\n</urlset>';
   await prisma.asset.update({ where: { id: assetId }, data: { sitemapXml } });
-  return { urls, sitemapXml, homepageTitle, homepageContent };
+  return { urls, sitemapXml, homepageTitle, homepageContent, homepageBase64Image, homepageMetaData };
 };
 
 
@@ -256,7 +289,7 @@ export async function createTaskExecution(values: FormValues) {
    }
 
    const task = await createScheduledTask({
-     taskName: values.taskName,
+     taskName: values.taskName || `Scan_${new Date().toISOString()}`,
      description: values.description,
      domain: values.url ? new URL(values.url).hostname : '',
      ipRange: values.ipRange,
@@ -386,6 +419,8 @@ export async function scanAndAnalyzeAction(
           sitemapXml = crawlResult.sitemapXml;
           homepageContent = crawlResult.homepageContent;
           homepageTitle = crawlResult.homepageTitle;
+          const homepageBase64Image = crawlResult.homepageBase64Image;
+          const homepageMetaData = crawlResult.homepageMetaData;
 
           console.log(`homepageTitle: ${homepageTitle}, homepageContent: ${homepageContent}`);
 
@@ -444,6 +479,8 @@ export async function scanAndAnalyzeAction(
               openPorts: openPortsStr,
               services: businessValueResult.analysis,
               networkTopology: associationResult,
+              imageBase64: homepageBase64Image || null,
+              metadata: homepageMetaData || null, // 保存首页元数据
             },
           });
     

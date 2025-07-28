@@ -11,6 +11,7 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { getDomainFromUrl } from '@/lib/utils'; 
 import { createScheduledTask, updateNextRunTime } from '@/lib/task-actions';
+import { metadata } from '@/app/layout';
 
 const formSchema = z.object({
   taskName: z.string().optional(),
@@ -206,6 +207,7 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
 
       const metaData = await crawlMetaData(url);
       const { image_base64, ...meta } = metaData;
+      // console.log(`Crawled metadata for ${url}:`, metaData);
 
       await prisma.taskExecution.update({
         where: { id: taskExecutionId },
@@ -469,10 +471,22 @@ export async function scanAndAnalyzeAction(
           const openPorts = await scanOpenPorts(hostname, portList);
           const openPortsStr = openPorts.join(', ');
 
+          let description = "";
+          if (metadata.description) {
+            description = metadata.description;
+          } else if (homepageContent) {
+            description = homepageContent.substring(0, 255);
+          } else {
+            description = homepageTitle;
+          }
+
+
           // 更新 asset 的分析信息
           await prisma.asset.update({
             where: { id: assetId },
             data: {
+              name: homepageTitle,
+              description,
               valuePropositionScore: businessValueResult.valuePropositionScore,
               summary: analysisResult,
               geolocation,

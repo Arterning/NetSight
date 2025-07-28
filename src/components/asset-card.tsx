@@ -93,8 +93,17 @@ export function AssetCard({ asset, onAssetUpdate }: AssetCardProps) {
         </div>
       </CardHeader>
       <CardContent className="flex-grow space-y-3">
+        {asset.imageBase64 && (
+          <div className="my-4">
+            <img
+              src={asset.imageBase64}
+              alt={`${asset.domain} screenshot`}
+              className="rounded-lg object-cover w-full h-40"
+            />
+          </div>
+        )}
         <p className="text-sm text-muted-foreground line-clamp-2 h-[40px]">
-          {asset.summary || 'No summary available.'}
+          {asset.description || asset.name }
         </p>
         <div className="text-xs text-muted-foreground">
           <strong>Value Score:</strong> {asset.valuePropositionScore}%

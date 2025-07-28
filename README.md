@@ -17,3 +17,11 @@
 - Code font: 'Source Code Pro' (monospace) for displaying command-line outputs or configurations.
 - Use minimalist icons to represent different asset types, network statuses, and analysis tools, focusing on clarity and usability.
 - Design a responsive layout that adapts to different screen sizes, ensuring the platform is accessible across devices. Use a card-based layout for presenting individual asset summaries.
+
+
+## Run test
+
+```
+pnpm test
+pnpm test -- test/crawl-metadata.test.ts
+```

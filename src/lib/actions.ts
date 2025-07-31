@@ -472,8 +472,8 @@ export async function scanAndAnalyzeAction(
           const openPortsStr = openPorts.join(', ');
 
           let description = "";
-          if (metadata.description) {
-            description = metadata.description;
+          if (homepageMetaData.description) {
+            description = homepageMetaData.description;
           } else if (homepageContent) {
             description = homepageContent.substring(0, 255);
           } else {

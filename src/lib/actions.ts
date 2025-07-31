@@ -223,7 +223,7 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
       if (homepageContent === '' && depth === 0) {
         homepageContent = content;
         homepageTitle = title;
-        homepageBase64Image = metaData.image_base64 || '';
+        homepageBase64Image = metaData.image_base64 || response.screenshotBase64 || '';
         homepageMetaData = meta || {};
       }
 

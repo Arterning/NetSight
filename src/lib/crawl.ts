@@ -35,9 +35,12 @@ export async function crawlPage(url: string) {
         type: 'Crawl Error',
         description: `Puppeteer failed to navigate to the page. Error: ${error instanceof Error ? error.message : String(error)}`,
         severity: 'Critical'
-      }])
+      }]),
+      screenshotBase64: null,
     };
   }
+
+  const screenshotBase64 = await page.screenshot({ encoding: 'base64' });
 
 
   const headers = response?.headers() || {};
@@ -193,6 +196,7 @@ export async function crawlPage(url: string) {
     text: pageAnalysisResult.textContent.trim(),
     links: Array.from(new Set(absoluteLinks)),
     vulnerabilities: volnerabilitiesText,
+    screenshotBase64,
   };
 }
 

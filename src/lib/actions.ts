@@ -18,11 +18,11 @@ const formSchema = z.object({
   description: z.string().optional(),
   ipRange: z.string().optional(),
   url: z.string().min(1, 'URL是必需的。').url('请输入有效的URL。'),
-  crawlDepth: z.string().default('full'),
+  crawlDepth: z.string().default('level1'),
   extractImages: z.boolean().default(true),
   valueKeywords: z.array(z.string()).default(['政府', '国家', '金融监管']),
-  scanRate: z.string(),
-  isScheduled: z.boolean(),
+  scanRate: z.string().default('normal'),
+  isScheduled: z.boolean().default(false),
   scheduleType: z.string().optional(),
   customCrawlDepth: z.number().optional(),
 });
@@ -295,7 +295,7 @@ export async function createTaskExecution(values: FormValues) {
      description: values.description,
      domain: values.url ? new URL(values.url).hostname : '',
      ipRange: values.ipRange,
-     scanRate: values.scanRate,
+     scanRate: values.scanRate || 'normal',
      scheduleType: values.scheduleType || 'once',
    });
    if (task.error) {

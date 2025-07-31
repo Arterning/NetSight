@@ -40,7 +40,9 @@ export async function crawlPage(url: string) {
     };
   }
 
-  const screenshotBase64 = await page.screenshot({ encoding: 'base64' });
+  const base64Image = await page.screenshot({ encoding: 'base64', type: 'png'  });
+
+  const screenshotBase64 = `data:image/png;base64,${base64Image}`;
 
 
   const headers = response?.headers() || {};

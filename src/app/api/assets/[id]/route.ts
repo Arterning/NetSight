@@ -49,15 +49,27 @@ export async function DELETE(
 ) {
   try {
     const { id } = context.params;
-    // Before deleting the asset, we need to delete related records
-    // due to foreign key constraints.
-    await prisma.webpage.deleteMany({
-      where: { assetId: id },
-    });
 
-    await prisma.asset.delete({
-      where: { id: id },
-    });
+    // Use a transaction to ensure all related data is deleted before the asset itself
+    await prisma.$transaction([
+      // Delete all associations where this asset is either the source or the target
+      prisma.assetAssociation.deleteMany({
+        where: {
+          OR: [
+            { sourceAssetId: id },
+            { targetAssetId: id },
+          ],
+        },
+      }),
+      // Delete all webpages associated with this asset
+      prisma.webpage.deleteMany({
+        where: { assetId: id },
+      }),
+      // Finally, delete the asset itself
+      prisma.asset.delete({
+        where: { id: id },
+      }),
+    ]);
 
     return new NextResponse(null, { status: 204 }); // No Content
   } catch (error) {

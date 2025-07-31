@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Globe, ExternalLink, Server, Activity, AlertCircle, Info } from 'lucide-react';
+import { Globe, ExternalLink, Server, Activity, AlertCircle, Info, Tag } from 'lucide-react';
 import type { Asset as PrismaAsset } from '@prisma/client';
 import { AssetActions } from '@/app/assets/_components/asset-actions';
 
@@ -73,6 +73,7 @@ const getPriorityInfo = (priority: Asset['priority']) => {
 export function AssetCard({ asset, onAssetUpdate }: AssetCardProps) {
   const statusInfo = getStatusInfo(asset.status);
   const priorityInfo = getPriorityInfo(asset.priority);
+  const keywords = asset.keywords ? asset.keywords.split(' ').filter(k => k) : [];
 
   return (
     <Card className="flex flex-col h-full w-full transition-colors duration-300">
@@ -105,8 +106,20 @@ export function AssetCard({ asset, onAssetUpdate }: AssetCardProps) {
         <p className="text-sm text-muted-foreground line-clamp-2 h-[40px]">
           {asset.description || asset.name }
         </p>
-        <div className="text-xs text-muted-foreground">
-          <strong>Value Score:</strong> {asset.valuePropositionScore}%
+        
+        {keywords.length > 0 && (
+          <div className="flex flex-wrap gap-2 items-center text-xs text-muted-foreground pt-2">
+            <Tag className="w-3.5 h-3.5" />
+            {keywords.map((keyword, index) => (
+              <Badge key={index} variant="outline" className="font-normal">
+                {keyword}
+              </Badge>
+            ))}
+          </div>
+        )}
+
+        <div className="text-xs text-muted-foreground pt-2">
+          <strong>Value Score:</strong> {asset.valuePropositionScore}
         </div>
       </CardContent>
       <Separator />

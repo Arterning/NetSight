@@ -25,7 +25,8 @@ model Asset {
   taskName              String
   name                  String? // 资产名称
   description           String? // 资产描述
-  tags                  String? // 标签，用逗号分隔
+  keywords              String? // 关键词
+  tags                  String? // 标签
   owner                 String? // 资产所有者
   department            String? // 所属部门
   imageBase64           String? // 资产图片的Base64编码

@@ -493,6 +493,7 @@ export async function scanAndAnalyzeAction(
               openPorts: openPortsStr,
               services: businessValueResult.analysis,
               tags: businessValueResult.keywords,
+              keywords: businessValueResult.keywords,
               networkTopology: associationResult,
               imageBase64: homepageBase64Image || null,
               metadata: homepageMetaData || null, // 保存首页元数据

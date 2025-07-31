@@ -414,7 +414,7 @@ export async function scanAndAnalyzeAction(
           } else if (values.crawlDepth === 'level3') {
             crawlDepth = parseInt((values.customCrawlDepth ?? '2').toString(), 10); // custom depth
           } else {
-            crawlDepth = 3; // fallback
+            crawlDepth = 0; // fallback
           }
           const crawlResult = await crawlWebsite(displayUrl, assetId, crawlDepth, taskExecutionId);
           crawledUrls = crawlResult.urls;
@@ -539,6 +539,7 @@ export async function scanAndAnalyzeAction(
           }
         }
       } catch (e) {
+        console.error(`Error during scan and analysis:`, e);
         await prisma.taskExecution.update({
           where: { id: taskExecutionId },
           data: { status: 'failed', stage: '任务失败' }

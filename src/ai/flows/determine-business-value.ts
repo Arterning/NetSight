@@ -6,7 +6,11 @@ const openai = new OpenAI({
 );
 
 export async function determineBusinessValue(input: { url: string, content: string, valueKeywords: string[] }): Promise<{ valuePropositionScore: number, analysis: string }> {
-  const prompt = `请分析以下网站内容并评估其业务价值，重点关注内容与以下关键词的相关性：
+  
+  let prompt: string;
+
+  if (input.valueKeywords && input.valueKeywords.length > 0) {
+    prompt = `请分析以下网站内容并评估其业务价值，重点关注内容与以下关键词的相关性：
 
 价值评估关键词：${input.valueKeywords.join('、')}
 
@@ -21,6 +25,21 @@ ${input.content}
 5. 请给出网站内容与上述关键词的整体相关性评分（0-100，0为完全无关，100为高度相关），并以如下JSON格式输出：
 {"valuePropositionScore": 88, "analysis": "你的详细分析内容..."}
 valuePropositionScore是数字，analysis是字符串。`;
+  } else {
+    prompt = `请分析以下网站内容并评估其业务价值。由于没有提供具体的价值评估关键词，请你首先自主从内容中提取5-8个核心关键词，然后基于这些关键词进行分析。
+
+网站内容：
+${input.content}
+
+请按照以下要求进行分析：
+1. 列出你自主提取的核心关键词。
+2. 评估内容与这些核心关键词的相关性。
+3. 综合评估网站的整体业务价值、潜在用途或目标受众。
+4. 给出改进建议（如果有的话）。
+5. 请根据你的综合分析，给出一个整体价值评分（0-100，0为毫无价值，100为极具价值），并以如下JSON格式输出：
+{"valuePropositionScore": 88, "analysis": "你的详细分析内容，包括你提取的关键词..."}
+valuePropositionScore是数字，analysis是字符串。`;
+  }
 
   const completion = await openai.chat.completions.create({
     model: 'deepseek-chat',

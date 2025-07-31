@@ -96,7 +96,7 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
               <Separator />
               <section>
                 <h3 className="text-lg font-semibold flex items-center gap-2 mb-3"><Briefcase className="w-5 h-5" /> Business Value</h3>
-                <p className="font-semibold text-2xl">关键词相关性: <strong>{asset.valuePropositionScore}%</strong></p>
+                <p className="text-lg">价值评分: <strong>{asset.valuePropositionScore}</strong></p>
                   <ReactMarkdown>
                       {asset.services || 'No services information available.'}
                   </ReactMarkdown>

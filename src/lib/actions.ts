@@ -492,6 +492,7 @@ export async function scanAndAnalyzeAction(
               geolocation,
               openPorts: openPortsStr,
               services: businessValueResult.analysis,
+              tags: businessValueResult.keywords,
               networkTopology: associationResult,
               imageBase64: homepageBase64Image || null,
               metadata: homepageMetaData || null, // 保存首页元数据
@@ -532,6 +533,8 @@ export async function scanAndAnalyzeAction(
               assetsFound: results.length,
             }
           });
+
+          console.log(`Task execution ${taskExecutionId} completed with ${results.length} assets found.`);
     
           // 更新定时任务的下次执行时间
           if (scheduledTaskId && values.isScheduled && values.scheduleType) {

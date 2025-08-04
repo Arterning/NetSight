@@ -13,8 +13,8 @@ datasource db {
 
 model Asset {
   id                    String             @id @default(cuid())
-  ip                    String             @unique
-  url                   String? // 资产URL
+  ip                    String             
+  url                   String             @unique
   domain                String?
   status                String             @default("Active")
   openPorts             String?

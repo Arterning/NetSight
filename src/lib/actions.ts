@@ -390,7 +390,7 @@ export async function scanAndAnalyzeAction(
             taskExecutionId: taskExecutionId,
           };
           const upsertedAsset = await prisma.asset.upsert({
-            where: { ip: ip, url: displayUrl, domain: assetData.domain },
+            where: { url: displayUrl },
             update: assetData,
             create: assetData,
           });

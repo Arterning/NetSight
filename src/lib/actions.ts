@@ -377,6 +377,7 @@ export async function scanAndAnalyzeAction(
           // 先 upsert asset，获得 assetId
           const assetData = {
             ip: ip,
+            url: displayUrl,
             domain: target.type === 'url' ? new URL(target.value).hostname : '',
             status: 'Active',
             openPorts: '',
@@ -389,7 +390,7 @@ export async function scanAndAnalyzeAction(
             taskExecutionId: taskExecutionId,
           };
           const upsertedAsset = await prisma.asset.upsert({
-            where: { ip: ip },
+            where: { ip: ip, url: displayUrl, domain: assetData.domain },
             update: assetData,
             create: assetData,
           });

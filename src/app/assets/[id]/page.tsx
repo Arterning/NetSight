@@ -59,6 +59,17 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
                       {asset.services || 'No services information available.'}
                   </ReactMarkdown>
               </section>
+
+              {/* networkTopology  */}
+              <section>
+                <h3 className="text-lg font-semibold flex items-center gap-2 mb-3"><Network className="w-5 h-5" /> Network Topology</h3>
+                <div className="prose prose-sm max-w-none">
+                  <ReactMarkdown>
+                    {asset.networkTopology || 'No network topology information available.'}
+                  </ReactMarkdown>
+                </div>
+              </section>
+
               <Separator />
               <section>
                 <h3 className="text-lg font-semibold flex items-center gap-2 mb-3"><Network className="w-5 h-5" /> Network Info</h3>

@@ -6,22 +6,23 @@ import { determineBusinessValue } from '@/ai/flows/determine-business-value';
 import { ipAssociationAnalysis } from '@/ai/flows/ip-association-analysis';
 import dns from 'dns/promises';
 import net from 'net';
-import { crawlPage } from './crawl';
+import { crawlPage, crawlMetaData } from './crawl';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { getDomainFromUrl } from '@/lib/utils'; 
 import { createScheduledTask, updateNextRunTime } from '@/lib/task-actions';
+import { metadata } from '@/app/layout';
 
 const formSchema = z.object({
   taskName: z.string().optional(),
   description: z.string().optional(),
   ipRange: z.string().optional(),
   url: z.string().min(1, 'URL是必需的。').url('请输入有效的URL。'),
-  crawlDepth: z.string().default('full'),
+  crawlDepth: z.string().default('level1'),
   extractImages: z.boolean().default(true),
   valueKeywords: z.array(z.string()).default(['政府', '国家', '金融监管']),
-  scanRate: z.string(),
-  isScheduled: z.boolean(),
+  scanRate: z.string().default('normal'),
+  isScheduled: z.boolean().default(false),
   scheduleType: z.string().optional(),
   customCrawlDepth: z.number().optional(),
 });
@@ -188,6 +189,8 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
   const urls: string[] = [];
   let homepageContent = '';
   let homepageTitle = '';
+  let homepageBase64Image = '';
+  let homepageMetaData: Record<string, string> = {};
   while (queue.length > 0) {
     const { url, depth } = queue.shift()!;
     if (visited.has(url) || depth > maxDepth) continue;
@@ -196,10 +199,22 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
     let htmlContent = '';
     let title = '';
     try {
+
       await prisma.taskExecution.update({
         where: { id: taskExecutionId },
-        data: { stage: `正在扫描${url}` },
+        data: { stage: `获取${url}的元数据` },
       });
+
+      const metaData = await crawlMetaData(url);
+      const { image_base64, ...meta } = metaData;
+      // console.log(`Crawled metadata for ${url}:`, metaData);
+
+      await prisma.taskExecution.update({
+        where: { id: taskExecutionId },
+        data: { stage: `扫描${url}的内容` },
+      });
+
+
       const response = await crawlPage(url);
       const content = response.text;
       htmlContent = response.htmlContent
@@ -208,6 +223,8 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
       if (homepageContent === '' && depth === 0) {
         homepageContent = content;
         homepageTitle = title;
+        homepageBase64Image = metaData.image_base64 || response.screenshotBase64 || '';
+        homepageMetaData = meta || {};
       }
 
       // 处理新域名和关联
@@ -220,8 +237,26 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
       // 保存页面内容到数据库
       await prisma.webpage.upsert({
         where: { assetId_url: { assetId, url } },
-        update: { htmlContent: cleanHtmlContent, content: content, title, isHomepage: depth === 0, vulnerabilities },
-        create: { assetId, url, htmlContent: cleanHtmlContent, content: content, title, isHomepage: depth === 0, vulnerabilities },
+        update: { 
+          htmlContent: cleanHtmlContent, 
+          content: content, 
+          title, 
+          isHomepage: depth === 0, 
+          vulnerabilities,
+          metadata: meta || null, // 保存元数据
+          imageBase64: image_base64 || null, 
+        },
+        create: { 
+          assetId, 
+          url, 
+          htmlContent: cleanHtmlContent, 
+          content: content, 
+          title, 
+          isHomepage: depth === 0, 
+          vulnerabilities,
+          metadata: meta || null, // 保存元数据
+          imageBase64: image_base64 || null, // 如果有图片则保存
+        },
       });
       
       const links = response.links || [];
@@ -244,7 +279,7 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
     urls.map(u => `  <url><loc>${u}</loc></url>`).join('\n') +
     '\n</urlset>';
   await prisma.asset.update({ where: { id: assetId }, data: { sitemapXml } });
-  return { urls, sitemapXml, homepageTitle, homepageContent };
+  return { urls, sitemapXml, homepageTitle, homepageContent, homepageBase64Image, homepageMetaData };
 };
 
 
@@ -256,11 +291,11 @@ export async function createTaskExecution(values: FormValues) {
    }
 
    const task = await createScheduledTask({
-     taskName: values.taskName,
+     taskName: values.taskName || `Scan_${new Date().toISOString()}`,
      description: values.description,
      domain: values.url ? new URL(values.url).hostname : '',
      ipRange: values.ipRange,
-     scanRate: values.scanRate,
+     scanRate: values.scanRate || 'normal',
      scheduleType: values.scheduleType || 'once',
    });
    if (task.error) {
@@ -342,6 +377,7 @@ export async function scanAndAnalyzeAction(
           // 先 upsert asset，获得 assetId
           const assetData = {
             ip: ip,
+            url: displayUrl,
             domain: target.type === 'url' ? new URL(target.value).hostname : '',
             status: 'Active',
             openPorts: '',
@@ -354,7 +390,7 @@ export async function scanAndAnalyzeAction(
             taskExecutionId: taskExecutionId,
           };
           const upsertedAsset = await prisma.asset.upsert({
-            where: { ip: ip },
+            where: { url: displayUrl },
             update: assetData,
             create: assetData,
           });
@@ -379,13 +415,15 @@ export async function scanAndAnalyzeAction(
           } else if (values.crawlDepth === 'level3') {
             crawlDepth = parseInt((values.customCrawlDepth ?? '2').toString(), 10); // custom depth
           } else {
-            crawlDepth = 3; // fallback
+            crawlDepth = 0; // fallback
           }
           const crawlResult = await crawlWebsite(displayUrl, assetId, crawlDepth, taskExecutionId);
           crawledUrls = crawlResult.urls;
           sitemapXml = crawlResult.sitemapXml;
           homepageContent = crawlResult.homepageContent;
           homepageTitle = crawlResult.homepageTitle;
+          const homepageBase64Image = crawlResult.homepageBase64Image;
+          const homepageMetaData = crawlResult.homepageMetaData;
 
           console.log(`homepageTitle: ${homepageTitle}, homepageContent: ${homepageContent}`);
 
@@ -434,16 +472,32 @@ export async function scanAndAnalyzeAction(
           const openPorts = await scanOpenPorts(hostname, portList);
           const openPortsStr = openPorts.join(', ');
 
+          let description = "";
+          if (homepageMetaData.description) {
+            description = homepageMetaData.description;
+          } else if (homepageContent) {
+            description = homepageContent.substring(0, 255);
+          } else {
+            description = homepageTitle;
+          }
+
+
           // 更新 asset 的分析信息
           await prisma.asset.update({
             where: { id: assetId },
             data: {
+              name: homepageTitle,
+              description,
               valuePropositionScore: businessValueResult.valuePropositionScore,
               summary: analysisResult,
               geolocation,
               openPorts: openPortsStr,
               services: businessValueResult.analysis,
+              tags: businessValueResult.keywords,
+              keywords: businessValueResult.keywords,
               networkTopology: associationResult,
+              imageBase64: homepageBase64Image || null,
+              metadata: homepageMetaData || null, // 保存首页元数据
             },
           });
     
@@ -481,6 +535,8 @@ export async function scanAndAnalyzeAction(
               assetsFound: results.length,
             }
           });
+
+          console.log(`Task execution ${taskExecutionId} completed with ${results.length} assets found.`);
     
           // 更新定时任务的下次执行时间
           if (scheduledTaskId && values.isScheduled && values.scheduleType) {
@@ -488,6 +544,7 @@ export async function scanAndAnalyzeAction(
           }
         }
       } catch (e) {
+        console.error(`Error during scan and analysis:`, e);
         await prisma.taskExecution.update({
           where: { id: taskExecutionId },
           data: { status: 'failed', stage: '任务失败' }

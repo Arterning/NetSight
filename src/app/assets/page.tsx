@@ -20,23 +20,36 @@ import {
   Activity,
   AlertCircle,
   HeartPulse,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [totalAssets, setTotalAssets] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   const { toast } = useToast();
 
   const fetchAssets = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/assets');
+      // 构建带分页参数的URL
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString(),
+        search: searchTerm,
+        status: statusFilter,
+      });
+      const response = await fetch(`/api/assets?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
-        setAssets(data);
+        setAssets(data.assets);
+        setTotalAssets(data.total);
       } else {
         throw new Error('Failed to fetch assets');
       }
@@ -49,23 +62,24 @@ export default function AssetsPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, currentPage, itemsPerPage, searchTerm, statusFilter]);
 
   useEffect(() => {
     fetchAssets();
   }, [fetchAssets]);
 
-  const filteredAssets = assets.filter(asset => {
-    const searchTermLower = searchTerm.toLowerCase();
-    const matchesSearch = 
-      asset.ip.toLowerCase().includes(searchTermLower) ||
-      (asset.name && asset.name.toLowerCase().includes(searchTermLower)) ||
-      (asset.domain && asset.domain.toLowerCase().includes(searchTermLower));
-    
-    const matchesStatus = statusFilter === 'all' || asset.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const totalPages = Math.ceil(totalAssets / itemsPerPage);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+  
+  // 搜索和过滤时回到第一页
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
 
   if (loading && assets.length === 0) {
     return (
@@ -103,7 +117,7 @@ export default function AssetsPage() {
             <Server className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{assets.length}</div>
+            <div className="text-2xl font-bold">{totalAssets}</div>
           </CardContent>
         </Card>
 
@@ -180,7 +194,7 @@ export default function AssetsPage() {
       {loading && assets.length > 0 && (
          <div className="text-center text-muted-foreground py-4">刷新中...</div>
       )}
-      {!loading && filteredAssets.length === 0 ? (
+      {!loading && assets.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Server className="h-12 w-12 text-muted-foreground mb-4" />
@@ -205,16 +219,43 @@ export default function AssetsPage() {
         <div>
           <div className="mb-4">
             <p className="text-sm text-muted-foreground">
-              显示 {filteredAssets.length} 个资产
+              显示 {assets.length} of {totalAssets} 个资产
             </p>
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredAssets.map((asset) => (
+            {assets.map((asset) => (
               <AssetCard key={asset.id} asset={asset} onAssetUpdate={fetchAssets} />
             ))}
           </div>
+          {/* 分页控件 */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-end space-x-2 py-4">
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                上一页
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                下一页
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
+

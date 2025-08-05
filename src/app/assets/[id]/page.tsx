@@ -43,6 +43,48 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
+              {asset.imageBase64 && (
+                <>
+                  <section>
+                    <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
+                      <FileText className="w-5 h-5" /> Homepage Screenshot
+                    </h3>
+                    <div className="mt-4">
+                      <img
+                        src={asset.imageBase64}
+                        alt={`${asset.domain} screenshot`}
+                        className="rounded-lg border object-contain max-w-xl mx-auto"
+                      />
+                    </div>
+                  </section>
+                  <Separator />
+                </>
+              )}
+              {asset.metadata && (() => {
+                try {
+                  // const metadata = JSON.parse(asset.metadata as string);
+                  return (
+                    <>
+                      <section>
+                        <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
+                          <FileText className="w-5 h-5" /> Metadata
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                          {Object.entries(asset.metadata).map(([key, value]) => (
+                            <div key={key} className="flex">
+                              <strong className="w-24 capitalize flex-shrink-0">{key.replace(/_/g, ' ')}:</strong>
+                              <span className="truncate" title={String(value)}>{String(value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                      <Separator />
+                    </>
+                  );
+                } catch (e) {
+                  return null; /* Don't render if JSON is invalid */
+                }
+              })()}
               <section>
                 <h3 className="text-lg font-semibold flex items-center gap-2 mb-3"><FileText className="w-5 h-5" /> Summary</h3>
                 <div className="prose prose-sm max-w-none">
@@ -54,7 +96,7 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
               <Separator />
               <section>
                 <h3 className="text-lg font-semibold flex items-center gap-2 mb-3"><Briefcase className="w-5 h-5" /> Business Value</h3>
-                <p className="font-semibold text-2xl">关键词相关性: <strong>{asset.valuePropositionScore}%</strong></p>
+                <p className="text-lg">价值评分: <strong>{asset.valuePropositionScore}</strong></p>
                   <ReactMarkdown>
                       {asset.services || 'No services information available.'}
                   </ReactMarkdown>

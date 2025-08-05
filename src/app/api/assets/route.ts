@@ -5,7 +5,9 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
-    const filter = searchParams.get('filter');
+    const status = searchParams.get('status');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '10', 10);
 
     const where: any = {
       isDeleted: false
@@ -21,18 +23,21 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    if (filter) {
-      where.status = filter;
+    if (status && status !== 'all') {
+      where.status = status;
     }
 
+    const total = await prisma.asset.count({ where });
     const assets = await prisma.asset.findMany({
       where,
       orderBy: {
         createdAt: 'desc'
-      }
+      },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return NextResponse.json(assets);
+    return NextResponse.json({ assets, total });
   } catch (error) {
     console.error('Error fetching assets:', error);
     return NextResponse.json(

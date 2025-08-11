@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # Next.js App Service
+  next-app:
+    build:
+      context: .
+      args:
+        # Pass these to the build process if needed as build-time secrets
+        - OPENAI_API_KEY=${OPENAI_API_KEY}
+        - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+    container_name: netsight-app
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    environment:
+      # Runtime environment variables
+      - DATABASE_URL=postgresql://user:password@postgres:5432/netsight
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+    restart: unless-stopped
+
+  # PostgreSQL Database Service
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    environment:
+      - POSTGRES_DB=netsight
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432" # Expose port to host for local debugging if needed
+    restart: always
+
+volumes:
+  postgres_data:
+    driver: local

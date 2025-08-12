@@ -40,12 +40,52 @@ export async function crawlPage(url: string) {
     };
   }
 
-  const base64Image = await page.screenshot({ encoding: 'base64', type: 'png'  });
+  const finalUrl = response?.url() || url; // 跳转后的真实地址
 
+  console.log(`Final URL after redirects: ${finalUrl}`);
+
+  // 截图（即使是非 HTML 页面也尽量截图）
+  let base64Image = '';
+  try {
+    base64Image = await page.screenshot({ encoding: 'base64', type: 'png' });
+  } catch (error) {
+    console.error(`Failed to take screenshot of ${finalUrl}:`, error);
+  }
   const screenshotBase64 = `data:image/png;base64,${base64Image}`;
 
-
+  // 检查 Content-Type
   const headers = response?.headers() || {};
+  const contentType = headers['content-type'] || '';
+  if (!contentType.includes('text/html')) {
+    await browser.close();
+    return {
+      url: finalUrl,
+      title: 'Non-HTML Content',
+      htmlContent: '',
+      text: '',
+      links: [],
+      vulnerabilities: 'Skipped analysis: Non-HTML content',
+      screenshotBase64,
+    };
+  }
+
+  // 确保 <body> 存在
+  try {
+    await page.waitForSelector('body', { timeout: 5000 });
+  } catch {
+    console.warn(`No <body> found for ${finalUrl}`);
+    await browser.close();
+    return {
+      url: finalUrl,
+      title: 'Empty HTML',
+      htmlContent: '',
+      text: '',
+      links: [],
+      vulnerabilities: 'No <body> tag found in document',
+      screenshotBase64,
+    };
+  }
+
   const vulnerabilities: Vulnerability[] = [];
 
   // 1. Clickjacking Check
@@ -68,13 +108,13 @@ export async function crawlPage(url: string) {
       severity: 'Medium',
     });
   }
-  
+
   // 3. Missing Content-Security-Policy (CSP) Header
   if (!csp) {
     vulnerabilities.push({
-        type: 'Missing CSP Header',
+      type: 'Missing CSP Header',
         description: 'The Content-Security-Policy (CSP) header is not set. A strong CSP can help prevent Cross-Site Scripting (XSS) and other injection attacks.',
-        severity: 'Medium'
+      severity: 'Medium'
     });
   }
 
@@ -121,16 +161,16 @@ export async function crawlPage(url: string) {
         }
       }
     });
-    
+
     // 6. Basic XSS check: Look for insecure `innerHTML` usage in scripts
     // This is a very basic check and might have false positives. A real test would involve injecting payloads.
     const scripts = Array.from(document.scripts).map(s => s.innerHTML).join('\n');
     if (scripts.includes('.innerHTML=')) {
-        foundVulnerabilities.push({
-            type: 'Potential XSS via innerHTML',
+      foundVulnerabilities.push({
+        type: 'Potential XSS via innerHTML',
             description: 'A script on the page uses `.innerHTML=`, which can be a vector for XSS if user-provided data is not properly sanitized. Manual review is recommended.',
-            severity: 'Low'
-        });
+        severity: 'Low'
+      });
     }
 
     // --- Existing page data extraction ---
@@ -190,7 +230,7 @@ export async function crawlPage(url: string) {
   const volnerabilitiesText = vulnerabilities.map(v =>
     `Type: ${v.type}\nDescription: ${v.description}\nSeverity: ${v.severity}\n`
   ).join('\n');
-  
+
   return {
     url,
     title: pageAnalysisResult.title,

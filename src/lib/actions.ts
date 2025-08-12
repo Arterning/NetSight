@@ -11,7 +11,6 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { getDomainFromUrl } from '@/lib/utils'; 
 import { createScheduledTask, updateNextRunTime } from '@/lib/task-actions';
-import { metadata } from '@/app/layout';
 
 const formSchema = z.object({
   taskName: z.string().optional(),
@@ -307,7 +306,7 @@ export async function createTaskExecution(values: FormValues) {
    const taskName = values.taskName || `Scan_${new Date().toISOString()}`;
 
    // 创建任务执行记录
-   let taskExecutionId: string | null = null;
+   let taskExecutionId: string;
    const execution = await prisma.taskExecution.create({
      data: {
        scheduledTaskId,
@@ -324,15 +323,18 @@ export async function createTaskExecution(values: FormValues) {
 
 export async function scanAndAnalyzeAction(
   values: FormValues
-): Promise<{ taskExecutionId: string | null; error: string | null }> {
+): Promise<{ taskExecutionId: string | undefined; error: string | null }> {
   const validation = formSchema.safeParse(values);
   if (!validation.success) {
     const error = validation.error.errors[0];
-    return { taskExecutionId: null, error: `${error.path.join('.')}: ${error.message}` };
+    return { taskExecutionId: undefined, error: `${error.path.join('.')}: ${error.message}` };
   }
+
+  let id: string | undefined = undefined;
 
   try {
     const { taskExecutionId, scheduledTaskId, taskName } = await createTaskExecution(values);
+    id = taskExecutionId;
 
     let analysisTargets: {type: 'ip' | 'url', value: string}[] = [];
 
@@ -555,9 +557,13 @@ export async function scanAndAnalyzeAction(
 
     revalidatePath('/');
     revalidatePath('/tasks');
-    return { taskExecutionId, error: null };
+    return { taskExecutionId: id, error: null };
   } catch (error) {
     console.error('Error during scan and analysis:', error);
-    return { taskExecutionId: null, error: 'Failed to complete analysis. Please try again.' };
+    await prisma.taskExecution.update({
+      where: { id },
+      data: { status: 'failed', stage: '任务失败' }
+    });
+    return { taskExecutionId: id, error: 'Failed to complete analysis. Please try again.' };
   }
 }

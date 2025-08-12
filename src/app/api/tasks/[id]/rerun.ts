@@ -36,7 +36,7 @@ export async function POST(
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 500 });
     }
-    return NextResponse.json({ success: true, data: result.data });
+    return NextResponse.json({ success: true, data: result.taskExecutionId });
   } catch (error) {
     console.error('Failed to rerun task:', error);
     return NextResponse.json({ error: 'Failed to rerun task' }, { status: 500 });

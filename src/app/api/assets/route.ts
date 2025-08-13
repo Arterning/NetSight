@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const assets = await prisma.asset.findMany({
       where,
       orderBy: {
-        createdAt: 'desc'
+        updatedAt: 'desc'
       },
       skip: (page - 1) * limit,
       take: limit,

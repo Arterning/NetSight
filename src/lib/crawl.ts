@@ -12,6 +12,7 @@ interface Vulnerability {
 export async function crawlPage(url: string) {
   const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
   const page = await browser.newPage();
+  await page.setViewport({ width: 1920, height: 1080 });
 
   await page.setUserAgent(
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
@@ -47,7 +48,7 @@ export async function crawlPage(url: string) {
   // 截图（即使是非 HTML 页面也尽量截图）
   let base64Image = '';
   try {
-    base64Image = await page.screenshot({ encoding: 'base64', type: 'png' });
+    base64Image = await page.screenshot({ encoding: 'base64', type: 'png', fullPage: true  }); 
   } catch (error) {
     console.error(`Failed to take screenshot of ${finalUrl}:`, error);
   }

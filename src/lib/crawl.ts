@@ -9,6 +9,13 @@ interface Vulnerability {
   severity: 'Low' | 'Medium' | 'High' | 'Critical';
 }
 
+interface SensitivePage {
+  url: string;
+  type: string;
+  description: string;
+  riskLevel: 'Low' | 'Medium' | 'High' | 'Critical';
+}
+
 export async function crawlPage(url: string) {
   const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
   const page = await browser.newPage();
@@ -32,6 +39,7 @@ export async function crawlPage(url: string) {
       htmlContent: '',
       text: `Failed to navigate to URL.`,
       links: [],
+      sensitivePages: [],
       vulnerabilities: JSON.stringify([{
         type: 'Crawl Error',
         description: `Puppeteer failed to navigate to the page. Error: ${error instanceof Error ? error.message : String(error)}`,
@@ -65,6 +73,7 @@ export async function crawlPage(url: string) {
       htmlContent: '',
       text: '',
       links: [],
+      sensitivePages: [],
       vulnerabilities: 'Skipped analysis: Non-HTML content',
       screenshotBase64,
     };
@@ -82,6 +91,7 @@ export async function crawlPage(url: string) {
       htmlContent: '',
       text: '',
       links: [],
+      sensitivePages: [],
       vulnerabilities: 'No <body> tag found in document',
       screenshotBase64,
     };
@@ -119,6 +129,109 @@ export async function crawlPage(url: string) {
     });
   }
 
+  // 敏感页面检测函数
+  function detectSensitivePage(url: string, linkText: string): SensitivePage | null {
+    const urlLower = url.toLowerCase();
+    const textLower = linkText.toLowerCase();
+    
+    // 登录相关页面
+    const loginPatterns = [
+      /login/i, /signin/i, /sign-in/i, /auth/i, /authentication/i, 
+      /logon/i, /user/i, /account/i, /portal/i, /dashboard/i,
+      /登录/i, /登陆/i, /用户/i
+    ];
+    
+    // 管理员/控制台页面
+    const adminPatterns = [
+      /admin/i, /administrator/i, /console/i, /control/i, /panel/i,
+      /manage/i, /manager/i, /backend/i, /cms/i, /cpanel/i,
+      /phpmyadmin/i, /webmail/i, /管理/i, /后台/i, /控制台/i
+    ];
+    
+    // 文件上传页面
+    const uploadPatterns = [
+      /upload/i, /file/i, /attach/i, /attachment/i, /media/i,
+      /documents/i, /files/i, /上传/i, /文件/i, /附件/i
+    ];
+    
+    // 配置/调试信息页面
+    const configPatterns = [
+      /config/i, /configuration/i, /settings/i, /setup/i, /install/i,
+      /debug/i, /test/i, /info/i, /status/i, /health/i, /version/i,
+      /phpinfo/i, /server-info/i, /配置/i, /设置/i, /调试/i
+    ];
+    
+    // API接口页面
+    const apiPatterns = [
+      /api/i, /rest/i, /graphql/i, /json/i, /xml/i, /swagger/i,
+      /接口/i, /api文档/i
+    ];
+    
+    // 数据库相关页面
+    const dbPatterns = [
+      /database/i, /db/i, /mysql/i, /postgres/i, /mongodb/i,
+      /sql/i, /数据库/i
+    ];
+
+    // 检查URL和链接文本
+    const checkTarget = `${urlLower} ${textLower}`;
+    
+    if (loginPatterns.some(pattern => pattern.test(checkTarget))) {
+      return {
+        url,
+        type: 'Login Page',
+        description: `Potential login/authentication page detected: ${linkText}`,
+        riskLevel: 'High'
+      };
+    }
+    
+    if (adminPatterns.some(pattern => pattern.test(checkTarget))) {
+      return {
+        url,
+        type: 'Admin/Console Page',
+        description: `Potential administrative or control panel page detected: ${linkText}`,
+        riskLevel: 'Critical'
+      };
+    }
+    
+    if (uploadPatterns.some(pattern => pattern.test(checkTarget))) {
+      return {
+        url,
+        type: 'File Upload Page',
+        description: `Potential file upload page detected: ${linkText}`,
+        riskLevel: 'High'
+      };
+    }
+    
+    if (configPatterns.some(pattern => pattern.test(checkTarget))) {
+      return {
+        url,
+        type: 'Configuration/Debug Page',
+        description: `Potential configuration or debug information page detected: ${linkText}`,
+        riskLevel: 'Medium'
+      };
+    }
+    
+    if (apiPatterns.some(pattern => pattern.test(checkTarget))) {
+      return {
+        url,
+        type: 'API Endpoint',
+        description: `Potential API endpoint detected: ${linkText}`,
+        riskLevel: 'Medium'
+      };
+    }
+    
+    if (dbPatterns.some(pattern => pattern.test(checkTarget))) {
+      return {
+        url,
+        type: 'Database Access Page',
+        description: `Potential database access page detected: ${linkText}`,
+        riskLevel: 'Critical'
+      };
+    }
+    
+    return null;
+  }
 
   const pageAnalysisResult = await page.evaluate(() => {
     const foundVulnerabilities: Vulnerability[] = [];
@@ -199,13 +312,16 @@ export async function crawlPage(url: string) {
     // 获取标题
     const title = document.title;
 
-    // 提取所有链接
-    const rawLinks = Array.from(document.querySelectorAll('a[href]')).map((a) => a.getAttribute('href'));
+    // 提取所有链接及其文本内容
+    const rawLinksWithText = Array.from(document.querySelectorAll('a[href]')).map((a) => ({
+      href: a.getAttribute('href'),
+      text: a.textContent?.trim() || a.getAttribute('title') || a.getAttribute('aria-label') || ''
+    }));
 
     return {
       title,
       textContent: getVisibleText(document.body),
-      rawLinks,
+      rawLinksWithText,
       vulnerabilities: foundVulnerabilities,
     };
   });
@@ -213,11 +329,20 @@ export async function crawlPage(url: string) {
   vulnerabilities.push(...pageAnalysisResult.vulnerabilities);
 
   const baseUrl = new URL(url);
-  const absoluteLinks = (pageAnalysisResult.rawLinks || [])
-    .filter((href): href is string => !!href && !href.startsWith('javascript:') && !href.startsWith('#'))
-    .map((href) => {
+  const sensitivePages: SensitivePage[] = [];
+  const absoluteLinks = (pageAnalysisResult.rawLinksWithText || [])
+    .filter((link) => !!link.href && !link.href.startsWith('javascript:') && !link.href.startsWith('#'))
+    .map((link) => {
       try {
-        return new URL(href, baseUrl).href;
+        const absoluteUrl = new URL(link.href, baseUrl).href;
+        
+        // 检测敏感页面
+        const sensitivePage = detectSensitivePage(absoluteUrl, link.text);
+        if (sensitivePage) {
+          sensitivePages.push(sensitivePage);
+        }
+        
+        return absoluteUrl;
       } catch {
         return null;
       }
@@ -228,8 +353,13 @@ export async function crawlPage(url: string) {
   await browser.close();
 
   // 将 vulnerabilities 转换为友好阅读的文本
-  const volnerabilitiesText = vulnerabilities.map(v =>
+  const vulnerabilitiesText = vulnerabilities.map(v =>
     `Type: ${v.type}\nDescription: ${v.description}\nSeverity: ${v.severity}\n`
+  ).join('\n');
+
+  // 将 sensitivePages 转换为友好阅读的文本
+  const sensitivePagesText = sensitivePages.map(sp =>
+    `Type: ${sp.type}\nURL: ${sp.url}\nDescription: ${sp.description}\nRisk Level: ${sp.riskLevel}\n`
   ).join('\n');
 
   return {
@@ -238,12 +368,11 @@ export async function crawlPage(url: string) {
     htmlContent: content,
     text: pageAnalysisResult.textContent.trim(),
     links: Array.from(new Set(absoluteLinks)),
-    vulnerabilities: volnerabilitiesText,
+    sensitivePages: sensitivePagesText,
+    vulnerabilities: vulnerabilitiesText,
     screenshotBase64,
   };
 }
-
-
 
 export async function crawlMetaData(url :string) {
   try {

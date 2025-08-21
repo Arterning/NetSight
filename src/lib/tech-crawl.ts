@@ -832,58 +832,42 @@ function deduplicateServices(services: TechItem[]) {
     });
 }
 
+
 /**
  * 生成技术信息报告
  */
-export function generateReport(techInfo: TechInfo) {
-    console.log('\n=== 网站技术分析报告 ===');
-    console.log(`网站: ${techInfo.url}`);
-    console.log(`分析时间: ${techInfo.timestamp}\n`);
-    
-    const categories = [
-        { key: 'software', name: '软件系统' },
-        { key: 'webServices', name: '网络服务' },
-        { key: 'frameworks', name: '前端框架' },
-        { key: 'libraries', name: '第三方库' },
-        { key: 'cms', name: '内容管理系统' },
-        { key: 'analytics', name: '分析工具' },
-        { key: 'security', name: '安全特性' },
-        { key: 'hosting', name: '托管服务' }
-    ];
-    
+export function generateReport(techInfo: TechInfo): string {
+    let report = `\n=== 网站技术分析报告 ===\n`
+    report += `网站: ${techInfo.url}\n`
+    report += `分析时间: ${techInfo.timestamp}\n\n`
+  
+    const categories: { key: keyof TechInfo; name: string }[] = [
+      { key: 'software', name: '软件系统' },
+      { key: 'webServices', name: '网络服务' },
+      { key: 'frameworks', name: '前端框架' },
+      { key: 'libraries', name: '第三方库' },
+      { key: 'cms', name: '内容管理系统' },
+      { key: 'analytics', name: '分析工具' },
+      { key: 'security', name: '安全特性' },
+      { key: 'hosting', name: '托管服务' }
+    ]
+  
     categories.forEach(category => {
-        if (techInfo[category.key] && techInfo[category.key].length > 0) {
-            console.log(`${category.name}:`);
-            techInfo[category.key].forEach(item => {
-                console.log(`  - ${item.name} ${item.version !== 'unknown' ? `(v${item.version})` : ''}`);
-                console.log(`    类别: ${item.category}`);
-                console.log(`    用途: ${item.purpose}`);
-                console.log(`    供应商: ${item.vendor}`);
-                console.log('');
-            });
-        }
-    });
-    
-    if (techInfo.performance) {
-        console.log('性能信息:');
-        console.log(`  页面加载时间: ${techInfo.performance.loadTime}ms`);
-        console.log(`  DOM就绪时间: ${techInfo.performance.domReady}ms`);
-        console.log(`  首字节时间: ${techInfo.performance.firstByte}ms`);
-        if (techInfo.performance.firstPaint) {
-            console.log(`  首次绘制时间: ${techInfo.performance.firstPaint.toFixed(2)}ms`);
-        }
-        if (techInfo.performance.firstContentfulPaint) {
-            console.log(`  首次内容绘制: ${techInfo.performance.firstContentfulPaint.toFixed(2)}ms`);
-        }
-    }
-
-    if (techInfo.hardware && techInfo.hardware.length > 0) {
-        console.log('\n硬件信息:');
-        techInfo.hardware.forEach(item => {
-            console.log(`  - ${item.name}: ${item.version}`);
-        });
-    }
-}
+      const items = techInfo[category.key]
+      if (Array.isArray(items) && items.length > 0) {
+        report += `${category.name}:\n`
+        items.forEach(item => {
+          report += `  - ${item.name} ${item.version !== 'unknown' ? `(v${item.version})` : ''}\n`
+          report += `    类别: ${item.category}\n`
+          report += `    用途: ${item.purpose}\n`
+          report += `    供应商: ${item.vendor}\n\n`
+        })
+      }
+    })
+  
+    return report
+  }
+  
 
 // 使用示例
 export async function runExample(url: string) {
@@ -894,7 +878,8 @@ export async function runExample(url: string) {
         });
         
         console.log('网站技术信息:', JSON.stringify(techInfo, null, 2));
-        generateReport(techInfo);
+        const report = generateReport(techInfo);
+        console.log('网站技术分析报告:\n', report);
     } catch (error) {
         console.error('Error:', error);
     }

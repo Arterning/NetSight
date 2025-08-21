@@ -7,6 +7,7 @@ import { ipAssociationAnalysis } from '@/ai/flows/ip-association-analysis';
 import dns from 'dns/promises';
 import net from 'net';
 import { crawlPage, crawlMetaData } from './crawl';
+import { getTechInfo, generateReport } from './tech-crawl';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { getDomainFromUrl } from '@/lib/utils'; 
@@ -224,6 +225,14 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
         homepageTitle = title;
         homepageBase64Image = metaData.image_base64 || response.screenshotBase64 || '';
         homepageMetaData = meta || {};
+
+        const techInfo = await getTechInfo(url, { headless: true, timeout: 30000 });
+        const techReport = generateReport(techInfo);
+
+        await prisma.taskExecution.update({
+          where: { id: taskExecutionId },
+          data: { stage: `扫描${url}的技术信息` },
+        });
       }
 
       // 处理新域名和关联

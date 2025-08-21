@@ -9,7 +9,7 @@ describe('crawlPage with a real external website ', () => {
     // https://en.igcu.pku.edu.cn/
     // https://www.biocore.pku.edu.cn
     // www.dapecology.pku.edu.cn
-    const url = 'https://www.dapecology.pku.edu.cn/';
+    const url = 'https://dean.pku.edu.cn/service/web/emaillogin.php/';
     const result = await crawlPage(url);
 
     console.log(result);

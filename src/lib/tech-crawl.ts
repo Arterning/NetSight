@@ -1,118 +1,174 @@
-import puppeteer from 'puppeteer';
+import puppeteer, { Browser, Page, HTTPRequest, HTTPResponse } from 'puppeteer'
 
-// 全局变量存储网络请求和响应
-let networkRequests = [];
-let networkResponses = [];
+// ==== 类型定义 ====
+
+// 通用技术信息
+interface TechItem {
+  category: string
+  name: string
+  version: string
+  purpose: string
+  vendor: string
+}
+
+// 硬件信息
+interface HardwareItem extends TechItem {}
+
+// 性能信息
+interface PerformanceInfo {
+  loadTime: number
+  domReady: number
+  firstByte: number
+  domProcessing: number
+  firstPaint?: number
+  firstContentfulPaint?: number
+  transferSize?: number
+  encodedBodySize?: number
+  decodedBodySize?: number
+}
+
+// 技术信息汇总
+export interface TechInfo {
+  url: string
+  timestamp: string
+  software: TechItem[]
+  webServices: TechItem[]
+  frameworks: TechItem[]
+  libraries: TechItem[]
+  cms: TechItem[]
+  analytics: TechItem[]
+  security: TechItem[]
+  hosting: TechItem[]
+}
+
+// 配置选项
+interface TechOptions {
+  headless?: boolean
+  timeout?: number
+  userAgent?: string
+}
+
+// 网络请求/响应
+interface NetworkRequest {
+  url: string
+  method: string
+  headers: Record<string, string>
+  resourceType: string
+}
+interface NetworkResponse {
+  url: string
+  status: number
+  headers: Record<string, string>
+  fromCache: boolean
+}
+
+// ==== 全局变量存储网络请求和响应 ====
+let networkRequests: NetworkRequest[] = []
+let networkResponses: NetworkResponse[] = []
 
 /**
  * 获取网站技术信息的主方法
- * @param {string} url - 目标网站URL
- * @param {Object} options - 配置选项
- * @returns {Object} 技术信息对象
  */
-export async function getTechInfo(url, options = {}) {
-    const config = {
-        headless: true,
-        timeout: 30000,
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        ...options
-    };
-
-    let browser = null;
-    let page = null;
-
-    try {
-        // 初始化浏览器
-        const browserData = await initBrowser(config);
-        browser = browserData.browser;
-        page = browserData.page;
-        
-        // 访问目标网站
-        await page.goto(url, { 
-            waitUntil: 'networkidle0', 
-            timeout: config.timeout 
-        });
-
-        // 收集各种技术信息
-        const techInfo = {
-            url: url,
-            timestamp: new Date().toISOString(),
-            software: await detectSoftware(page),
-            webServices: await detectWebServices(),
-            hardware: await detectHardware(page),
-            frameworks: await detectFrameworks(page),
-            libraries: await detectLibraries(page),
-            cms: await detectCMS(page),
-            analytics: await detectAnalytics(),
-            security: await detectSecurity(),
-            hosting: await detectHosting(),
-            performance: await getPerformanceInfo(page)
-        };
-
-        return techInfo;
-
-    } catch (error) {
-        console.error('爬取技术信息时发生错误:', error);
-        throw error;
-    } finally {
-        if (browser) {
-            await browser.close();
-        }
+export async function getTechInfo(url: string, options: TechOptions = {}): Promise<TechInfo> {
+    const config: Required<TechOptions> = {
+      headless: true,
+      timeout: 30000,
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      ...options
     }
-}
-
-/**
- * 初始化浏览器和页面
- */
-async function initBrowser(config) {
+  
+    let browser: Browser | null = null
+    let page: Page | null = null
+  
+    try {
+      // 初始化浏览器
+      const browserData = await initBrowser(config)
+      browser = browserData.browser
+      page = browserData.page
+  
+      // 访问目标网站
+      await page.goto(url, {
+        waitUntil: 'networkidle0',
+        timeout: config.timeout
+      })
+  
+      // 收集各种技术信息
+      const techInfo: TechInfo = {
+        url: url,
+        timestamp: new Date().toISOString(),
+        software: await detectSoftware(page),
+        webServices: await detectWebServices(),
+        frameworks: await detectFrameworks(page),
+        libraries: await detectLibraries(page),
+        cms: await detectCMS(page),
+        analytics: await detectAnalytics(),
+        security: await detectSecurity(),
+        hosting: await detectHosting(),
+      }
+  
+      return techInfo
+    } catch (error) {
+      console.error('爬取技术信息时发生错误:', error)
+      throw error
+    } finally {
+      if (browser) {
+        await browser.close()
+      }
+    }
+  }
+  
+  /**
+   * 初始化浏览器和页面
+   */
+  async function initBrowser(config: Required<TechOptions>): Promise<{ browser: Browser; page: Page }> {
     const browser = await puppeteer.launch({
-        headless: config.headless,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-web-security',
-            '--disable-features=VizDisplayCompositor'
-        ]
-    });
-
-    const page = await browser.newPage();
-    await page.setUserAgent(config.userAgent);
-    await page.setViewport({ width: 1920, height: 1080 });
-
+      headless: config.headless,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor'
+      ]
+    })
+  
+    const page = await browser.newPage()
+    await page.setUserAgent(config.userAgent)
+    await page.setViewport({ width: 1920, height: 1080 })
+  
     // 重置网络监听数组
-    let networkRequests = [];
-    let networkResponses = [];
-
+    networkRequests = []
+    networkResponses = []
+  
     // 监听网络请求
-    await page.setRequestInterception(true);
-    page.on('request', request => {
-        networkRequests.push({
-            url: request.url(),
-            method: request.method(),
-            headers: request.headers(),
-            resourceType: request.resourceType()
-        });
-        request.continue();
-    });
-
+    await page.setRequestInterception(true)
+    page.on('request', (request: HTTPRequest) => {
+      networkRequests.push({
+        url: request.url(),
+        method: request.method(),
+        headers: request.headers(),
+        resourceType: request.resourceType()
+      })
+      request.continue()
+    })
+  
     // 监听响应
-    page.on('response', response => {
-        networkResponses.push({
-            url: response.url(),
-            status: response.status(),
-            headers: response.headers(),
-            fromCache: response.fromCache()
-        });
-    });
-
-    return { browser, page };
-}
+    page.on('response', (response: HTTPResponse) => {
+      networkResponses.push({
+        url: response.url(),
+        status: response.status(),
+        headers: response.headers(),
+        fromCache: response.fromCache()
+      })
+    })
+  
+    return { browser, page }
+  }
 
 /**
  * 检测软件系统信息
  */
-async function detectSoftware(page) {
+async function detectSoftware(page: Page): Promise<TechItem[]> {
     return await page.evaluate(() => {
         const software = [];
         
@@ -248,7 +304,7 @@ async function detectSoftware(page) {
 /**
  * 检测网络服务
  */
-async function detectWebServices() {
+async function detectWebServices(): Promise<TechItem[]> {
     const services = [];
     
     // 分析网络请求和响应头
@@ -318,88 +374,9 @@ async function detectWebServices() {
 }
 
 /**
- * 检测硬件设备信息（基于推断）
- */
-async function detectHardware(page) {
-    const hardware = [];
-    
-    // 通过性能API推断硬件信息
-    const performanceInfo = await page.evaluate(() => {
-        const info = {};
-        
-        if (navigator.hardwareConcurrency) {
-            info.cpuCores = navigator.hardwareConcurrency;
-        }
-        
-        if (navigator.deviceMemory) {
-            info.memory = navigator.deviceMemory;
-        }
-        
-        if (navigator.platform) {
-            info.platform = navigator.platform;
-        }
-        
-        if (navigator.userAgent) {
-            info.userAgent = navigator.userAgent;
-        }
-
-        // 检测GPU信息
-        try {
-            const canvas = document.createElement('canvas');
-            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-            if (gl) {
-                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-                if (debugInfo) {
-                    info.gpu = {
-                        vendor: gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL),
-                        renderer: gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
-                    };
-                }
-            }
-        } catch (e) {
-            // GPU信息获取失败
-        }
-        
-        return info;
-    });
-
-    if (performanceInfo.cpuCores) {
-        hardware.push({
-            category: '处理器',
-            name: 'CPU',
-            version: `${performanceInfo.cpuCores} cores`,
-            purpose: '计算处理',
-            vendor: 'unknown'
-        });
-    }
-
-    if (performanceInfo.memory) {
-        hardware.push({
-            category: '内存',
-            name: 'RAM',
-            version: `${performanceInfo.memory}GB`,
-            purpose: '数据存储',
-            vendor: 'unknown'
-        });
-    }
-
-    if (performanceInfo.gpu) {
-        hardware.push({
-            category: '图形处理器',
-            name: 'GPU',
-            version: performanceInfo.gpu.renderer,
-            purpose: '图形渲染',
-            vendor: performanceInfo.gpu.vendor
-        });
-    }
-
-    return hardware;
-}
-
-/**
  * 检测前端框架和UI库
  */
-async function detectFrameworks(page) {
+async function detectFrameworks(page: Page): Promise<TechItem[]> {
     return await page.evaluate(() => {
         const frameworks = [];
         
@@ -476,7 +453,7 @@ async function detectFrameworks(page) {
 /**
  * 检测第三方库和服务
  */
-async function detectLibraries(page) {
+async function detectLibraries(page: Page): Promise<TechItem[]> {
     const libraries = [];
 
     // 页面内检测
@@ -574,7 +551,7 @@ async function detectLibraries(page) {
 /**
  * 检测CMS系统
  */
-async function detectCMS(page) {
+async function detectCMS(page: Page): Promise<TechItem[]> {
     return await page.evaluate(() => {
         const cms = [];
         
@@ -645,7 +622,7 @@ async function detectCMS(page) {
 /**
  * 检测分析工具
  */
-async function detectAnalytics() {
+async function detectAnalytics(): Promise<TechItem[]> {
     const analytics = [];
     
     networkRequests.forEach(request => {
@@ -687,8 +664,8 @@ async function detectAnalytics() {
 /**
  * 检测安全特性
  */
-async function detectSecurity() {
-    const security = [];
+async function detectSecurity(): Promise<TechItem[]> {
+    const security: TechItem[] = [];
     
     networkResponses.forEach(response => {
         const headers = response.headers;
@@ -740,8 +717,8 @@ async function detectSecurity() {
 /**
  * 检测托管服务
  */
-async function detectHosting() {
-    const hosting = [];
+async function detectHosting(): Promise<TechItem[]> {
+    const hosting: TechItem[] = [];
     
     networkResponses.forEach(response => {
         const headers = response.headers;
@@ -790,51 +767,11 @@ async function detectHosting() {
     return deduplicateServices(hosting);
 }
 
-/**
- * 获取性能信息
- */
-async function getPerformanceInfo(page) {
-    return await page.evaluate(() => {
-        const performance = window.performance;
-        if (performance && performance.timing) {
-            const timing = performance.timing;
-            const navigation = performance.getEntriesByType('navigation')[0];
-            
-            const performanceData = {
-                loadTime: timing.loadEventEnd - timing.navigationStart,
-                domReady: timing.domContentLoadedEventEnd - timing.navigationStart,
-                firstByte: timing.responseStart - timing.requestStart,
-                domProcessing: timing.domComplete - timing.domLoading
-            };
-
-            // 获取First Paint和First Contentful Paint
-            const paintEntries = performance.getEntriesByType('paint');
-            paintEntries.forEach(entry => {
-                if (entry.name === 'first-paint') {
-                    performanceData.firstPaint = entry.startTime;
-                }
-                if (entry.name === 'first-contentful-paint') {
-                    performanceData.firstContentfulPaint = entry.startTime;
-                }
-            });
-
-            // Core Web Vitals
-            if (navigation) {
-                performanceData.transferSize = navigation.transferSize;
-                performanceData.encodedBodySize = navigation.encodedBodySize;
-                performanceData.decodedBodySize = navigation.decodedBodySize;
-            }
-
-            return performanceData;
-        }
-        return null;
-    });
-}
 
 /**
  * 解析服务器头信息
  */
-function parseServerHeader(serverHeader) {
+function parseServerHeader(serverHeader: string) {
     const patterns = [
         { regex: /nginx\/([0-9.]+)/i, name: 'Nginx' },
         { regex: /Apache\/([0-9.]+)/i, name: 'Apache' },
@@ -868,7 +805,7 @@ function parseServerHeader(serverHeader) {
 /**
  * 根据服务器名称获取供应商
  */
-function getVendorByServer(serverName) {
+function getVendorByServer(serverName: string) {
     const vendors = {
         'Nginx': 'Nginx Inc.',
         'Apache': 'Apache Software Foundation',
@@ -883,7 +820,7 @@ function getVendorByServer(serverName) {
 /**
  * 去重服务列表
  */
-function deduplicateServices(services) {
+function deduplicateServices(services: TechItem[]) {
     const seen = new Set();
     return services.filter(service => {
         const key = `${service.name}-${service.category}`;
@@ -898,7 +835,7 @@ function deduplicateServices(services) {
 /**
  * 生成技术信息报告
  */
-export function generateReport(techInfo) {
+export function generateReport(techInfo: TechInfo) {
     console.log('\n=== 网站技术分析报告 ===');
     console.log(`网站: ${techInfo.url}`);
     console.log(`分析时间: ${techInfo.timestamp}\n`);

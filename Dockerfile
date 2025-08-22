@@ -1,7 +1,7 @@
 # Dockerfile
 
 # Stage 1: Install dependencies
-FROM node:20-slim AS deps
+FROM node:20 AS deps
 WORKDIR /app
 
 # Install pnpm
@@ -11,10 +11,11 @@ RUN npm install -g pnpm
 COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+# RUN apt-get update -y && apt-get install -y openssl
+RUN pnpm config set registry https://registry.npmmirror.com && pnpm install --frozen-lockfile
 
 # Stage 2: Build the application
-FROM node:20-slim AS builder
+FROM node:20 AS builder
 WORKDIR /app
 
 # Copy dependencies from the 'deps' stage
@@ -23,16 +24,17 @@ COPY . .
 
 # Prisma Client Generation
 COPY prisma ./prisma/
+# RUN apt-get update -y && apt-get install -y openssl
 RUN npx prisma generate
 
 # Build the Next.js application
 # Pass build-time secrets as ARGs
 ARG OPENAI_API_KEY
 ARG OPENAI_BASE_URL
-RUN pnpm run build
+RUN npm run build
 
 # Stage 3: Production image
-FROM node:20-slim AS runner
+FROM node:20 AS runner
 WORKDIR /app
 
 # Set environment to production
@@ -43,7 +45,7 @@ RUN addgroup --system --gid 1001 nextjs
 RUN adduser --system --uid 1001 nextjs
 
 # Copy standalone output
-COPY --from=builder /app/public ./public
+COPY --from=builder /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nextjs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nextjs /app/.next/static ./.next/static
 

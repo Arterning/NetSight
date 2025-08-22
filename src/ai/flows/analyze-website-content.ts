@@ -10,12 +10,15 @@
 
 import OpenAI from 'openai';
 
-const openai = new OpenAI({ 
-  baseURL: process.env.OPENAI_BASE_URL,
-  apiKey: process.env.OPENAI_API_KEY }
-);
+
 
 export async function analyzeWebsiteContent(input: { url: string, content: string }) {
+
+  const openai = new OpenAI({ 
+    baseURL: process.env.OPENAI_BASE_URL,
+    apiKey: process.env.OPENAI_API_KEY }
+  );
+  
   const prompt = `请根据以下网站内容，提取并总结以下信息：
 
 1. 网站的性质（如政府、企业、教育、公益、新闻等，简要说明）

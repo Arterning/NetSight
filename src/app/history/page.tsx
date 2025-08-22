@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getScanHistory } from '@/lib/task-actions';
 import { columns, type ScanHistory } from './_components/columns';
 import HistoryViewSwitcher from './_components/HistoryViewSwitcher';

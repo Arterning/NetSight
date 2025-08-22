@@ -34,23 +34,36 @@ ARG OPENAI_BASE_URL
 RUN npm run build
 
 # Stage 3: Production image
-FROM node:20 AS runner
+FROM node:20
 WORKDIR /app
 
 # Set environment to production
 ENV NODE_ENV production
 
+# 安装 Chromium 依赖（系统库、字体等）
+RUN apt-get update && apt-get install -y \
+    chromium \
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libdrm-dev \
+    libxkbcommon-dev \
+    libgbm-dev \
+    libasound-dev \
+    libpangocairo-1.0-0 \
+    libx11-xcb1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create a non-root user for security
-RUN addgroup --system --gid 1001 nextjs
-RUN adduser --system --uid 1001 nextjs
+# RUN addgroup --system --gid 1001 nextjs
+# RUN adduser --system --uid 1001 nextjs
 
 # Copy standalone output
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nextjs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nextjs /app/.next/static ./.next/static
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 
 # Set the user
-USER nextjs
+USER root
 
 # Expose the port
 EXPOSE 3000

@@ -191,6 +191,7 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
   let homepageTitle = '';
   let homepageBase64Image = '';
   let homepageMetaData: Record<string, string> = {};
+  let techReport = '';
   while (queue.length > 0) {
     const { url, depth } = queue.shift()!;
     if (visited.has(url) || depth > maxDepth) continue;
@@ -227,7 +228,7 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
         homepageMetaData = meta || {};
 
         const techInfo = await getTechInfo(url, { headless: true, timeout: 30000 });
-        const techReport = generateReport(techInfo);
+        techReport = generateReport(techInfo);
 
         await prisma.taskExecution.update({
           where: { id: taskExecutionId },
@@ -287,7 +288,7 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
     urls.map(u => `  <url><loc>${u}</loc></url>`).join('\n') +
     '\n</urlset>';
   await prisma.asset.update({ where: { id: assetId }, data: { sitemapXml } });
-  return { urls, sitemapXml, homepageTitle, homepageContent, homepageBase64Image, homepageMetaData };
+  return { urls, sitemapXml, homepageTitle, homepageContent, homepageBase64Image, homepageMetaData, techReport };
 };
 
 
@@ -435,6 +436,7 @@ export async function scanAndAnalyzeAction(
           homepageTitle = crawlResult.homepageTitle;
           const homepageBase64Image = crawlResult.homepageBase64Image;
           const homepageMetaData = crawlResult.homepageMetaData;
+          const { techReport } = crawlResult;
 
           console.log(`homepageTitle: ${homepageTitle}, homepageContent: ${homepageContent}`);
 
@@ -499,6 +501,7 @@ export async function scanAndAnalyzeAction(
             data: {
               name: homepageTitle,
               description,
+              techReport,
               valuePropositionScore: businessValueResult.valuePropositionScore,
               summary: analysisResult,
               geolocation,

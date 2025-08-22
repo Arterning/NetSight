@@ -75,4 +75,4 @@ ENV OPENAI_API_KEY=""
 ENV OPENAI_BASE_URL=""
 
 # Start the server
-CMD ["node", "server.js"]
+CMD ["npm", "start-docker"]

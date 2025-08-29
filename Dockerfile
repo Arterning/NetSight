@@ -42,14 +42,18 @@ ENV NODE_ENV production
 
 RUN npm install -g pnpm
 COPY --from=deps /app/node_modules ./node_modules
-RUN npx puppeteer browsers install chrome
+
+RUN apt-get update && apt-get install -y chromium
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+# RUN npx puppeteer browsers install chrome
 
 # Create a non-root user for security
 # RUN addgroup --system --gid 1001 nextjs
 # RUN adduser --system --uid 1001 nextjs
 
 # Copy standalone output
-COPY scripts /app/
+COPY scripts /app/scripts/
+COPY package.json /app/
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
@@ -67,4 +71,5 @@ ENV OPENAI_API_KEY=""
 ENV OPENAI_BASE_URL=""
 
 # Start the server
-CMD ["npm", "start-docker"]
+CMD ["npm", "run", "start-docker"]
+

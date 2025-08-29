@@ -19,6 +19,10 @@ async function applyMigration() {
   }
 }
 
+function success(msg) {
+    console.log(chalk.greenBright(`✓ ${msg}`));
+}
+
 function error(msg) {
     console.log(chalk.redBright(`✗ ${msg}`));
 }

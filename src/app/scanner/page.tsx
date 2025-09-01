@@ -50,6 +50,7 @@ const formSchema = z.object({
   isScheduled: z.boolean(),
   scheduleType: z.string().optional(),
   customCrawlDepth: z.number().optional(),
+  proxy: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -75,6 +76,7 @@ export default function ScannerPage() {
       extractImages: true,
       valueKeywords: ['政府', '国家', '金融监管'],
       customCrawlDepth: 2,
+      proxy: 'http://127.0.0.1:7890',
     },
   });
 
@@ -186,19 +188,19 @@ export default function ScannerPage() {
                   )}
                 />
 
-                {/* <FormField
-                  control={form.control}
-                  name="ipRange"
+                <FormField
+                  control={form.proxy}
+                  name="proxy"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>IP范围 (可选)</FormLabel>
+                      <FormLabel>代理 (可选)</FormLabel>
                       <FormControl>
-                        <Input placeholder="例如：192.168.1.1/24 或 10.0.0.1-50" {...field} />
+                        <Input placeholder="例如：192.168.0.1:8080" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
-                /> */}
+                />
 
                 <FormField
                   control={form.control}

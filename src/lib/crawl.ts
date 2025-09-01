@@ -16,8 +16,21 @@ interface SensitivePage {
   riskLevel: 'Low' | 'Medium' | 'High' | 'Critical';
 }
 
-export async function crawlPage(url: string) {
-  const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+export async function crawlPage(url: string, proxy?: string) {
+  const browser = await puppeteer.launch({
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      // 设置 HTTP/HTTPS 代理
+      `--proxy-server=${proxy}`,
+      // 或者设置 SOCKS 代理
+      // '--proxy-server=socks5://proxy.example.com:1080',
+      // 或者设置 SOCKS4 代理
+      // '--proxy-server=socks4://proxy.example.com:1080',
+    ],
+    headless: true
+  });
   const page = await browser.newPage();
   await page.setViewport({ width: 1920, height: 1080 });
 

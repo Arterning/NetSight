@@ -46,6 +46,7 @@ interface TechOptions {
   headless?: boolean
   timeout?: number
   userAgent?: string
+  proxy?: string
 }
 
 // 网络请求/响应
@@ -128,7 +129,8 @@ export async function getTechInfo(url: string, options: TechOptions = {}): Promi
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-web-security',
-        '--disable-features=VizDisplayCompositor'
+        '--disable-features=VizDisplayCompositor',
+        `--proxy-server=${config.proxy}`
       ]
     })
   

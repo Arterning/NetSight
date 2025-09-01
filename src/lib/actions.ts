@@ -25,6 +25,7 @@ const formSchema = z.object({
   isScheduled: z.boolean().default(false),
   scheduleType: z.string().optional(),
   customCrawlDepth: z.number().optional(),
+  proxy: z.string().optional(),
 });
 
 const assetSchema = z.object({
@@ -121,7 +122,7 @@ export type ScanAndAnalyzeResult = {
  * @param sourceUrl 当前页面URL
  * @param targetUrl 新发现的链接URL
  */
-export async function handleNewDomainAndAssociation(taskExecutionId: string, sourceAssetId: string, sourceUrl: string, targetUrl: string) {
+export async function handleNewDomainAndAssociation(taskExecutionId: string | undefined, sourceAssetId: string, sourceUrl: string, targetUrl: string) {
   
   console.log(`Handling url association: ${sourceUrl} -> ${targetUrl}`);
 
@@ -183,7 +184,7 @@ export async function handleNewDomainAndAssociation(taskExecutionId: string, sou
 }
 
 
-const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number = 3, taskExecutionId: string) => {
+const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number = 3, taskExecutionId: string | undefined, proxy: string | undefined) => {
   const visited = new Set<string>();
   const queue: { url: string; depth: number }[] = [{ url: startUrl, depth: 0 }];
   const urls: string[] = [];
@@ -192,6 +193,7 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
   let homepageBase64Image = '';
   let homepageMetaData: Record<string, string> = {};
   let techReport = '';
+  let allPageContent = '';
   while (queue.length > 0) {
     const { url, depth } = queue.shift()!;
     if (visited.has(url) || depth > maxDepth) continue;
@@ -216,10 +218,11 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
       });
 
 
-      const response = await crawlPage(url);
+      const response = await crawlPage(url, proxy);
       const content = response.text;
       htmlContent = response.htmlContent
       title = response.title;
+      allPageContent += content;
 
       if (homepageContent === '' && depth === 0) {
         homepageContent = content;
@@ -227,7 +230,7 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
         homepageBase64Image = metaData.image_base64 || response.screenshotBase64 || '';
         homepageMetaData = meta || {};
 
-        const techInfo = await getTechInfo(url, { headless: true, timeout: 30000 });
+        const techInfo = await getTechInfo(url, { headless: true, timeout: 30000, proxy });
         techReport = generateReport(techInfo);
 
         await prisma.taskExecution.update({
@@ -288,7 +291,7 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
     urls.map(u => `  <url><loc>${u}</loc></url>`).join('\n') +
     '\n</urlset>';
   await prisma.asset.update({ where: { id: assetId }, data: { sitemapXml } });
-  return { urls, sitemapXml, homepageTitle, homepageContent, homepageBase64Image, homepageMetaData, techReport };
+  return { urls, sitemapXml, homepageTitle, homepageContent, homepageBase64Image, homepageMetaData, techReport, allPageContent };
 };
 
 
@@ -429,14 +432,15 @@ export async function scanAndAnalyzeAction(
           } else {
             crawlDepth = 0; // fallback
           }
-          const crawlResult = await crawlWebsite(displayUrl, assetId, crawlDepth, taskExecutionId);
+          const proxy = values.proxy;
+          const crawlResult = await crawlWebsite(displayUrl, assetId, crawlDepth, taskExecutionId, proxy);
           crawledUrls = crawlResult.urls;
           sitemapXml = crawlResult.sitemapXml;
           homepageContent = crawlResult.homepageContent;
           homepageTitle = crawlResult.homepageTitle;
           const homepageBase64Image = crawlResult.homepageBase64Image;
           const homepageMetaData = crawlResult.homepageMetaData;
-          const { techReport } = crawlResult;
+          const { techReport, allPageContent } = crawlResult;
 
           console.log(`homepageTitle: ${homepageTitle}, homepageContent: ${homepageContent}`);
 
@@ -450,8 +454,8 @@ export async function scanAndAnalyzeAction(
           }
     
           // 分析首页内容
-          content = homepageTitle + homepageContent
-            ? homepageContent.replace(/<style[^>]*>.*?<\/style>/g, ' ')
+          content = homepageTitle + allPageContent
+            ? allPageContent.replace(/<style[^>]*>.*?<\/style>/g, ' ')
                              .replace(/<script[^>]*>.*?<\/script>/g, ' ')
                              .replace(/<[^>]*>/g, ' ')
                              .replace(/\s+/g, ' ')

@@ -17,18 +17,24 @@ interface SensitivePage {
 }
 
 export async function crawlPage(url: string, proxy?: string) {
+
+  console.log(`Ready to Crawling ${url}`);
+
+  // 基础参数数组
+  const args = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage'
+  ];
+
+  // 当proxy存在且不为空字符串时，添加代理参数
+  if (proxy && proxy.trim() !== '') {
+    console.log(`Using proxy: ${proxy}`);
+    args.push(`--proxy-server=${proxy}`);
+  }
+
   const browser = await puppeteer.launch({
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      // 设置 HTTP/HTTPS 代理
-      `--proxy-server=${proxy}`,
-      // 或者设置 SOCKS 代理
-      // '--proxy-server=socks5://proxy.example.com:1080',
-      // 或者设置 SOCKS4 代理
-      // '--proxy-server=socks4://proxy.example.com:1080',
-    ],
+    args: args,
     headless: true
   });
   const page = await browser.newPage();

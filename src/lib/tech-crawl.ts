@@ -122,16 +122,24 @@ export async function getTechInfo(url: string, options: TechOptions = {}): Promi
    * 初始化浏览器和页面
    */
   async function initBrowser(config: Required<TechOptions>): Promise<{ browser: Browser; page: Page }> {
-    const browser = await puppeteer.launch({
-      headless: config.headless,
-      args: [
+    // 基础参数数组
+    const args = [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-web-security',
         '--disable-features=VizDisplayCompositor',
-        `--proxy-server=${config.proxy}`
-      ]
+    ];
+
+    // 当proxy存在且不为空字符串时，添加代理参数
+    const proxy = config.proxy
+    if (proxy && proxy.trim() !== '') {
+        args.push(`--proxy-server=${proxy}`);
+    }
+    
+    const browser = await puppeteer.launch({
+      headless: config.headless,
+      args: args,
     })
   
     const page = await browser.newPage()

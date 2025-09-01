@@ -2,5 +2,5 @@ curl --location --request POST 'http://192.168.200.183:9002/api/scan' --header '
     "url":"https://icode.pku.edu.cn/",
     "valueKeywords":["研究", "大学"],
     "crawlDepth":"level3",
-    "customCrawlDepth":"1",
+    "customCrawlDepth":1
 }'

@@ -138,30 +138,19 @@ export async function handleNewDomainAndAssociation(taskExecutionId: string | un
   }
 
   // 查找或新建 Asset
-  let targetAsset = await prisma.asset.findFirst({ where: { domain: targetDomain } });
+  let targetAsset = await prisma.asset.findUnique({ where: { url: targetUrl } });
   if (!targetAsset) {
     const resolvedIp = await getIpFromDomain(targetDomain);
-    if (!resolvedIp) {
-      console.error(`Could not resolve IP for new domain ${targetDomain}. Cannot create asset.`);
-      return;
-    }
-    
-    // Check for an existing asset with the same IP to avoid unique constraint errors
-    const existingAssetWithIp = await prisma.asset.findUnique({ where: { ip: resolvedIp } });
-
-    if (existingAssetWithIp) {
-      targetAsset = existingAssetWithIp;
-    } else {
-      targetAsset = await prisma.asset.create({ 
-        data: { 
-          taskExecutionId, 
-          taskName: '', 
-          domain: targetDomain, 
-          ip: resolvedIp, 
-          status: 'Active' 
-        } 
-      });
-    }
+    targetAsset = await prisma.asset.create({ 
+      data: { 
+        url: targetUrl,
+        taskExecutionId, 
+        taskName: '', 
+        domain: targetDomain, 
+        ip: resolvedIp || '', 
+        status: 'Active' 
+      } 
+    });
   }
 
   if (!targetAsset) {

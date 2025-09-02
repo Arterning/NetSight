@@ -387,7 +387,8 @@ export async function crawlPage(url: string, proxy?: string) {
     htmlContent: content,
     text: pageAnalysisResult.textContent.trim(),
     links: Array.from(new Set(absoluteLinks)),
-    sensitivePages: sensitivePagesText,
+    sensitivePages,
+    sensitivePagesText,
     vulnerabilities: vulnerabilitiesText,
     screenshotBase64,
   };

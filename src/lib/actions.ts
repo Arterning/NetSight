@@ -13,6 +13,13 @@ import { revalidatePath } from 'next/cache';
 import { getDomainFromUrl } from '@/lib/utils'; 
 import { createScheduledTask, updateNextRunTime } from '@/lib/task-actions';
 
+interface SensitivePage {
+  url: string;
+  type: string;
+  description: string;
+  riskLevel: 'Low' | 'Medium' | 'High' | 'Critical';
+}
+
 const formSchema = z.object({
   taskName: z.string().optional(),
   description: z.string().optional(),
@@ -183,6 +190,7 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
   let homepageMetaData: Record<string, string> = {};
   let techReport = '';
   let allPageContent = '';
+  let sensitivePages : SensitivePage[] = [];
   while (queue.length > 0) {
     const { url, depth } = queue.shift()!;
     if (visited.has(url) || depth > maxDepth) continue;
@@ -212,6 +220,7 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
       htmlContent = response.htmlContent
       title = response.title;
       allPageContent += content;
+      sensitivePages = response.sensitivePages;
 
       if (homepageContent === '' && depth === 0) {
         homepageContent = content;
@@ -280,7 +289,17 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
     urls.map(u => `  <url><loc>${u}</loc></url>`).join('\n') +
     '\n</urlset>';
   await prisma.asset.update({ where: { id: assetId }, data: { sitemapXml } });
-  return { urls, sitemapXml, homepageTitle, homepageContent, homepageBase64Image, homepageMetaData, techReport, allPageContent };
+  return { 
+    urls, 
+    sitemapXml, 
+    homepageTitle, 
+    homepageContent, 
+    homepageBase64Image, 
+    homepageMetaData, 
+    techReport, 
+    allPageContent,
+    sensitivePages,
+   };
 };
 
 
@@ -429,7 +448,7 @@ export async function scanAndAnalyzeAction(
           homepageTitle = crawlResult.homepageTitle;
           const homepageBase64Image = crawlResult.homepageBase64Image;
           const homepageMetaData = crawlResult.homepageMetaData;
-          const { techReport, allPageContent } = crawlResult;
+          const { techReport, allPageContent, sensitivePages } = crawlResult;
 
           console.log(`homepageTitle: ${homepageTitle}, homepageContent: ${homepageContent}`);
 
@@ -495,6 +514,7 @@ export async function scanAndAnalyzeAction(
               name: homepageTitle,
               description,
               techReport,
+              sensitivePages,
               valuePropositionScore: businessValueResult.valuePropositionScore,
               summary: analysisResult,
               geolocation,

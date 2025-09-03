@@ -18,6 +18,7 @@ export async function GET(
         assetsFound: true,
         assets: {
           include: {
+            apiEndpoints: true,
             webpages: {
               select: {
                 title: true,

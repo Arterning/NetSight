@@ -18,7 +18,12 @@ export async function GET(
         assetsFound: true,
         assets: {
           include: {
-            webpages: true,
+            webpages: {
+              select: {
+                title: true,
+                url: true
+              }
+            },
           }
         },
       }

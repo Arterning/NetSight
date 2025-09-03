@@ -17,6 +17,9 @@ export async function GET(
         duration: true,
         assetsFound: true,
         assets: {
+          orderBy: {
+            updatedAt: 'desc'
+          },
           include: {
             apiEndpoints: true,
             webpages: {

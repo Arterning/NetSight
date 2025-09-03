@@ -71,7 +71,7 @@ const formSchema = z.object({
   description: z.string().optional(),
   ipRange: z.string().optional(),
   url: z.string().min(1, 'URL是必需的。').url('请输入有效的URL。'),
-  crawlDepth: z.string().default('level1'),
+  crawlDepth: z.string().default('level2'),
   extractImages: z.boolean().default(true),
   valueKeywords: z.array(z.string()).default(['政府', '国家', '金融监管']),
   scanRate: z.string().default('normal'),

@@ -22,7 +22,8 @@ export async function GET(
             webpages: {
               select: {
                 title: true,
-                url: true
+                url: true,
+                content: true,
               }
             },
           }

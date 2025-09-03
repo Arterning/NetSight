@@ -33,6 +33,7 @@ model Asset {
   imageBase64           String? // 资产图片的Base64编码
   metadata              Json? // 其他元数据
   sensitivePages        Json?
+  favicon               String?
   priority              String             @default("Medium") // Low, Medium, High, Critical
   isDeleted             Boolean            @default(false) // 软删除标记
   techReport            String?

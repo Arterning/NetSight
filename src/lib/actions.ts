@@ -13,6 +13,52 @@ import { revalidatePath } from 'next/cache';
 import { getDomainFromUrl } from '@/lib/utils'; 
 import { createScheduledTask, updateNextRunTime } from '@/lib/task-actions';
 
+async function fetchFavicon(url: string): Promise<string | null> {
+  try {
+    const domain = new URL(url).origin;
+    const faviconUrls = [
+      `${domain}/favicon.ico`,
+      `${domain}/favicon.png`,
+      `${domain}/apple-touch-icon.png`,
+      `${domain}/apple-touch-icon-precomposed.png`,
+    ];
+
+    for (const faviconUrl of faviconUrls) {
+      try {
+        const response = await fetch(faviconUrl, { 
+          method: 'HEAD',
+          timeout: 5000,
+        });
+        if (response.ok) {
+          return faviconUrl;
+        }
+      } catch (e) {
+        // Continue to next URL
+      }
+    }
+
+    // Try to parse favicon from HTML meta tags as fallback
+    try {
+      const response = await fetch(url, { timeout: 5000 });
+      if (response.ok) {
+        const html = await response.text();
+        const faviconMatch = html.match(/<link[^>]*rel=["'](?:shortcut )?icon["'][^>]*href=["']([^"']+)["']/i);
+        if (faviconMatch) {
+          const faviconPath = faviconMatch[1];
+          return faviconPath.startsWith('http') ? faviconPath : new URL(faviconPath, domain).href;
+        }
+      }
+    } catch (e) {
+      // Fallback failed
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Error fetching favicon for ${url}:`, error);
+    return null;
+  }
+}
+
 interface SensitivePage {
   url: string;
   type: string;
@@ -191,6 +237,7 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
   let techReport = '';
   let allPageContent = '';
   let sensitivePages : SensitivePage[] = [];
+  let faviconUrl: string | null = null;
   while (queue.length > 0) {
     const { url, depth } = queue.shift()!;
     if (visited.has(url) || depth > maxDepth) continue;
@@ -227,6 +274,13 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
         homepageTitle = title;
         homepageBase64Image = metaData.image_base64 || response.screenshotBase64 || '';
         homepageMetaData = meta || {};
+
+        // Fetch favicon for homepage only
+        await prisma.taskExecution.update({
+          where: { id: taskExecutionId },
+          data: { stage: `获取${url}的favicon` },
+        });
+        faviconUrl = await fetchFavicon(url);
 
         const techInfo = await getTechInfo(url, { headless: true, timeout: 30000, proxy });
         techReport = generateReport(techInfo);
@@ -299,6 +353,7 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
     techReport, 
     allPageContent,
     sensitivePages,
+    faviconUrl,
    };
 };
 
@@ -448,7 +503,7 @@ export async function scanAndAnalyzeAction(
           homepageTitle = crawlResult.homepageTitle;
           const homepageBase64Image = crawlResult.homepageBase64Image;
           const homepageMetaData = crawlResult.homepageMetaData;
-          const { techReport, allPageContent, sensitivePages } = crawlResult;
+          const { techReport, allPageContent, sensitivePages, faviconUrl } = crawlResult;
 
           console.log(`homepageTitle: ${homepageTitle}, homepageContent: ${homepageContent}`);
 
@@ -525,6 +580,7 @@ export async function scanAndAnalyzeAction(
               networkTopology: associationResult,
               imageBase64: homepageBase64Image || null,
               metadata: homepageMetaData || null, // 保存首页元数据
+              favicon: faviconUrl, // 保存favicon URL
             },
           });
     

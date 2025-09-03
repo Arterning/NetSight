@@ -16,7 +16,11 @@ export async function GET(
         endTime: true,
         duration: true,
         assetsFound: true,
-        assets: true,
+        assets: {
+          include: {
+            webpages: true,
+          }
+        },
       }
     });
     

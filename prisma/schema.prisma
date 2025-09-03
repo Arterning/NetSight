@@ -45,6 +45,7 @@ model Asset {
   sitemapXml            String? // 存储sitemap.xml内容
   sourceAssociations    AssetAssociation[] @relation("SourceAsset")
   targetAssociations    AssetAssociation[] @relation("TargetAsset")
+  apiEndpoints          ApiEndpoint[]
 }
 
 model Webpage {
@@ -108,4 +109,24 @@ model AssetAssociation {
 
   sourceAsset Asset @relation("SourceAsset", fields: [sourceAssetId], references: [id])
   targetAsset Asset @relation("TargetAsset", fields: [targetAssetId], references: [id])
+}
+
+model ApiEndpoint {
+  id          String   @id @default(cuid())
+  url         String   // 接口请求的完整URL
+  method      String   // HTTP方法 (GET, POST, PUT, DELETE等)
+  type        String   // 请求类型 (XHR, Fetch, WebSocket等)
+  status      Int?     // 响应状态码
+  headers     Json?    // 请求头信息
+  requestBody Json?    // 请求体内容
+  response    Json?    // 响应内容（可选，可能很大）
+  responseSize Int?    // 响应大小（字节）
+  duration    Int?     // 请求耗时（毫秒）
+  fromPage    String   // 发起请求的页面URL
+  createdAt   DateTime @default(now())
+  assetId     String
+  asset       Asset    @relation(fields: [assetId], references: [id])
+
+  @@index([assetId])
+  @@index([url])
 }

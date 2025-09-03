@@ -44,6 +44,112 @@ export async function crawlPage(url: string, proxy?: string) {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
   );
 
+  // 存储网络请求信息的数组
+  const apiRequests: Array<{
+    url: string;
+    method: string;
+    type: string;
+    status?: number;
+    headers?: any;
+    requestBody?: any;
+    response?: any;
+    responseSize?: number;
+    duration?: number;
+    fromPage: string;
+  }> = [];
+
+  // 监听网络请求
+  page.setRequestInterception(true);
+  
+  page.on('request', (request) => {
+    const requestUrl = request.url();
+    const method = request.method();
+    const headers = request.headers();
+    const postData = request.postData();
+
+    // 过滤出API请求 - 排除静态资源
+    if (
+      requestUrl.includes('/api/') ||
+      requestUrl.includes('/graphql') ||
+      requestUrl.includes('/rest/') ||
+      method !== 'GET' ||
+      headers['content-type']?.includes('application/json') ||
+      headers['content-type']?.includes('application/x-www-form-urlencoded')
+    ) {
+      const startTime = Date.now();
+      
+      const requestData = {
+        url: requestUrl,
+        method: method,
+        type: request.resourceType(),
+        headers: headers,
+        requestBody: postData ? (function() {
+          try {
+            return JSON.parse(postData);
+          } catch {
+            return postData; // 如果不是JSON，直接返回原始数据
+          }
+        })() : null,
+        fromPage: url,
+        startTime: startTime
+      };
+
+      // 临时存储，等响应时补充信息
+      (request as any).requestData = requestData;
+    }
+
+    request.continue();
+  });
+
+  page.on('response', async (response) => {
+    const request = response.request();
+    const requestData = (request as any).requestData;
+    
+    if (requestData) {
+      try {
+        const endTime = Date.now();
+        const duration = endTime - requestData.startTime;
+        
+        let responseBody = null;
+        try {
+          // 尝试获取响应体（小心处理大文件）
+          const contentLength = response.headers()['content-length'];
+          if (contentLength && parseInt(contentLength) < 1024 * 1024) { // 只获取小于1MB的响应
+            const responseText = await response.text();
+            responseBody = responseText;
+          } else if (!contentLength) {
+            // 如果没有content-length，尝试获取响应（但限制大小）
+            try {
+              const responseText = await response.text();
+              if (responseText.length < 1024 * 1024) {
+                responseBody = responseText;
+              }
+            } catch (e) {
+              // 跳过
+            }
+          }
+        } catch (e) {
+          // 响应体获取失败，跳过
+        }
+
+        apiRequests.push({
+          url: requestData.url,
+          method: requestData.method,
+          type: requestData.type,
+          status: response.status(),
+          headers: requestData.headers,
+          requestBody: requestData.requestBody,
+          response: responseBody ? { body: responseBody, headers: response.headers() } : null,
+          responseSize: response.headers()['content-length'] ? parseInt(response.headers()['content-length']) : null,
+          duration: duration,
+          fromPage: requestData.fromPage,
+        });
+      } catch (e) {
+        console.error('Error processing response:', e);
+      }
+    }
+  });
+
   console.log(`Visiting ${url}`);
   let response: HTTPResponse | null = null;
   try {
@@ -391,6 +497,7 @@ export async function crawlPage(url: string, proxy?: string) {
     sensitivePagesText,
     vulnerabilities: vulnerabilitiesText,
     screenshotBase64,
+    apiRequests, // 返回捕获到的API请求
   };
 }
 

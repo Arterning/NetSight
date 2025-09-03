@@ -238,6 +238,7 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
   let allPageContent = '';
   let sensitivePages : SensitivePage[] = [];
   let faviconUrl: string | null = null;
+  const allApiRequests: any[] = []; // 收集所有页面的API请求
   while (queue.length > 0) {
     const { url, depth } = queue.shift()!;
     if (visited.has(url) || depth > maxDepth) continue;
@@ -268,6 +269,11 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
       title = response.title;
       allPageContent += content;
       sensitivePages = response.sensitivePages;
+      
+      // 收集API请求
+      if (response.apiRequests && response.apiRequests.length > 0) {
+        allApiRequests.push(...response.apiRequests);
+      }
 
       if (homepageContent === '' && depth === 0) {
         homepageContent = content;
@@ -338,6 +344,30 @@ const crawlWebsite = async (startUrl: string, assetId: string, maxDepth: number 
       continue;
     }
   }
+  
+  // 保存所有API请求到数据库
+  for (const apiRequest of allApiRequests) {
+    try {
+      await prisma.apiEndpoint.create({
+        data: {
+          url: apiRequest.url,
+          method: apiRequest.method,
+          type: apiRequest.type,
+          status: apiRequest.status,
+          headers: apiRequest.headers,
+          requestBody: apiRequest.requestBody,
+          response: apiRequest.response,
+          responseSize: apiRequest.responseSize,
+          duration: apiRequest.duration,
+          fromPage: apiRequest.fromPage,
+          assetId: assetId,
+        },
+      });
+    } catch (e) {
+      console.error('Error saving API endpoint:', e);
+    }
+  }
+  
   // 生成 sitemap.xml
   const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
     urls.map(u => `  <url><loc>${u}</loc></url>`).join('\n') +

@@ -72,11 +72,11 @@ export default function ScannerPage() {
       scanRate: 'adaptive',
       isScheduled: false,
       scheduleType: 'once',
-      crawlDepth: 'level1',
+      crawlDepth: 'level2',
       extractImages: true,
       valueKeywords: ['政府', '国家', '金融监管'],
       customCrawlDepth: 2,
-      proxy: 'http://127.0.0.1:7890',
+      proxy: '',
     },
   });
 
